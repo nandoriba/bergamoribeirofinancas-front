@@ -72,6 +72,14 @@ function toggleDetails(rowId: string) {
     : [...expandedRowIds.value, rowId];
 }
 
+function isDecisionableDuplicate(row: ImportPreviewRow) {
+  return row.status === 'possible_duplicate' || (row.status === 'duplicate' && row.duplicateCandidates.length > 0);
+}
+
+function decisionValue(row: ImportPreviewRow) {
+  return props.possibleDuplicateDecisions[row.id] ?? (row.status === 'duplicate' ? 'duplicate' : '');
+}
+
 function decide(rowId: string, decision: PossibleDuplicateDecision) {
   emit('decidePossibleDuplicate', rowId, decision);
 }
@@ -149,12 +157,12 @@ function handleDecisionChange(rowId: string, event: Event) {
                   <div class="status-cell">
                     <span class="status-badge" :class="statusClass[row.status]">{{ statusLabel[row.status] }}</span>
                     <button
-                      v-if="row.status === 'possible_duplicate'"
+                      v-if="isDecisionableDuplicate(row)"
                       class="inline-icon-btn"
                       type="button"
                       :aria-expanded="isExpanded(row.id)"
-                      :aria-label="`${isExpanded(row.id) ? 'Ocultar' : 'Ver'} possíveis duplicidades de ${row.description}`"
-                      :title="`${isExpanded(row.id) ? 'Ocultar' : 'Ver'} possíveis duplicidades`"
+                      :aria-label="`${isExpanded(row.id) ? 'Ocultar' : 'Ver'} duplicidades encontradas de ${row.description}`"
+                      :title="`${isExpanded(row.id) ? 'Ocultar' : 'Ver'} duplicidades encontradas`"
                       @click="toggleDetails(row.id)"
                     >
                       <IconGlyph name="info" :size="14" />
@@ -165,11 +173,11 @@ function handleDecisionChange(rowId: string, event: Event) {
                   </div>
                 </td>
                 <td>
-                  <div v-if="row.status === 'possible_duplicate'" class="duplicate-decision-group">
+                  <div v-if="isDecisionableDuplicate(row)" class="duplicate-decision-group">
                     <select
                       class="form-control duplicate-decision-select"
-                      :value="possibleDuplicateDecisions[row.id] ?? ''"
-                      :aria-label="`Decisão da possível duplicidade de ${row.description}`"
+                      :value="decisionValue(row)"
+                      :aria-label="`Decisão da duplicidade de ${row.description}`"
                       @change="handleDecisionChange(row.id, $event)"
                     >
                       <option value="" disabled>
@@ -190,7 +198,7 @@ function handleDecisionChange(rowId: string, event: Event) {
                 </td>
               </tr>
               <tr
-                v-if="row.status === 'possible_duplicate' && isExpanded(row.id)"
+                v-if="isDecisionableDuplicate(row) && isExpanded(row.id)"
                 class="duplicate-detail-row"
               >
                 <td colspan="7">

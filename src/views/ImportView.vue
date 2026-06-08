@@ -51,6 +51,12 @@ const confirmDisabled = computed(
 const possibleDuplicateCount = computed(() =>
   data.value.importPreview.filter((row) => row.status === 'possible_duplicate').length,
 );
+const forcedDuplicateCount = computed(
+  () =>
+    data.value.importPreview.filter(
+      (row) => row.status === 'duplicate' && possibleDuplicateDecisions.value[row.id] === 'not_duplicate',
+    ).length,
+);
 const cardContextLabel = computed(() =>
   isCreditCardPreview.value ? 'obrigatório para fatura de cartão' : 'opcional para fatura de cartão',
 );
@@ -59,6 +65,8 @@ const confirmHint = computed(() =>
     ? 'Selecione o cartão desta fatura para confirmar a importação.'
     : pendingPossibleDuplicateCount.value
       ? `Escolha uma decisão para ${pendingPossibleDuplicateCount.value} possível(is) duplicidade(s).`
+      : forcedDuplicateCount.value
+        ? `${forcedDuplicateCount.value} duplicidade(s) marcada(s) para importação forçada.`
       : possibleDuplicateCount.value
         ? `${acceptedPossibleDuplicateRowIds.value.length} nova(s) e ${confirmedDuplicateRowIds.value.length} duplicada(s) decididas.`
       : '',
