@@ -8,6 +8,7 @@ export interface RecurringPayload {
   dayOfMonth: number;
   startsAt: string;
   endsAt?: string;
+  notes?: string;
   status?: RecurringStatus;
   accountId?: string;
   categoryId?: string;

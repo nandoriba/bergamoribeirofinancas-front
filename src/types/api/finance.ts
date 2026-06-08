@@ -101,6 +101,7 @@ export interface RecurringTemplate {
   dayOfMonth: number;
   startsAt: string;
   endsAt?: string | null;
+  notes?: string | null;
   status: RecurringStatus;
   memberProfileId: string;
   accountId?: string | null;

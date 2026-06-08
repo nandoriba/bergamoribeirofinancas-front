@@ -1,18 +1,26 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
+import { formatBRL, parseCurrencyInputCents } from '@/utils/format';
+
 const model = defineModel<number>({ required: true });
 
-const value = computed({
-  get: () => (model.value / 100).toFixed(2).replace('.', ','),
-  set: (next: string) => {
-    const normalized = next.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
-    const amount = Number.parseFloat(normalized);
-    model.value = Number.isFinite(amount) ? Math.round(amount * 100) : 0;
-  },
-});
+const value = computed(() => formatBRL(model.value));
+
+function handleInput(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const cents = parseCurrencyInputCents(input.value);
+  model.value = cents;
+  input.value = formatBRL(cents);
+}
 </script>
 
 <template>
-  <input v-model="value" class="form-control num" inputmode="decimal" autocomplete="off" />
+  <input
+    :value="value"
+    class="form-control num"
+    inputmode="numeric"
+    autocomplete="off"
+    @input="handleInput"
+  />
 </template>

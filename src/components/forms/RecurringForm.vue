@@ -50,6 +50,7 @@ const form = reactive({
   dayOfMonth: props.initial?.dayOfMonth ?? 1,
   startsAt: toDateValue(props.initial?.startsAt) ?? toToday(),
   endsAt: toDateValue(props.initial?.endsAt) ?? '',
+  notes: props.initial?.notes ?? '',
   status: (props.initial?.status ?? 'active') as RecurringStatus,
   accountId: props.initial?.accountId ?? '',
   categoryId: props.initial?.categoryId ?? '',
@@ -63,6 +64,7 @@ function submit() {
     dayOfMonth: Number(form.dayOfMonth),
     startsAt: form.startsAt,
     endsAt: form.endsAt || undefined,
+    notes: form.notes.trim() || undefined,
     status: form.status,
     accountId: form.accountId || undefined,
     categoryId: form.categoryId || undefined,
@@ -116,6 +118,10 @@ function toDateValue(value?: string | null) {
 
     <FormField label="Categoria">
       <Select v-model="form.categoryId" :options="categoryOptions" />
+    </FormField>
+
+    <FormField label="Observação" class="full">
+      <textarea v-model="form.notes" class="form-control" maxlength="500" />
     </FormField>
 
     <div class="form-actions full">

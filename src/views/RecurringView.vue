@@ -139,6 +139,7 @@ function accountName(accountId?: string | null) {
       <DataTable :columns="columns" :items="items" empty-label="Nenhum recorrente cadastrado">
         <template #cell-description="{ item }">
           <span class="strong">{{ item.description }}</span>
+          <span v-if="item.notes" class="muted"> · {{ item.notes }}</span>
         </template>
         <template #cell-type="{ item }">
           {{ TRANSACTION_TYPE_LABELS[item.type] }}
