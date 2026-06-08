@@ -28,7 +28,7 @@ const statusLabel: Record<ImportPreviewRow['status'], string> = {
   new: 'Novo',
   duplicate: 'Duplicado',
   possible_duplicate: 'Possível Duplicidade',
-  review: 'Revisar',
+  review: 'Não será importado',
 };
 
 const statusClass: Record<ImportPreviewRow['status'], string> = {
@@ -155,6 +155,9 @@ function handleDecisionChange(rowId: string, event: Event) {
                     >
                       <IconGlyph name="info" :size="14" />
                     </button>
+                    <span v-if="row.status === 'review' && row.reviewReason" class="review-reason">
+                      {{ row.reviewReason }}
+                    </span>
                   </div>
                 </td>
                 <td>

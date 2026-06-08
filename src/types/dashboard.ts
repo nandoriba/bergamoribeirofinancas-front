@@ -55,6 +55,7 @@ export interface ImportPreviewRow {
   suggestedCategory: string;
   value: number;
   status: 'new' | 'duplicate' | 'possible_duplicate' | 'review';
+  reviewReason?: string | null;
   duplicateCandidates: ImportDuplicateCandidate[];
 }
 

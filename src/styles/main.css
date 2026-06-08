@@ -1205,6 +1205,14 @@ a:focus-visible {
   align-items: center;
 }
 
+.review-reason {
+  max-width: 240px;
+  overflow: hidden;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .inline-icon-btn {
   display: inline-grid;
   width: 24px;
