@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 import FormField from '@/components/common/FormField.vue';
 import Select from '@/components/common/Select.vue';
 import { useAccountsStore } from '@/stores/accounts';
 import { useAuthStore } from '@/stores/auth';
 import { useDashboardStore } from '@/stores/dashboard';
+import type { PossibleDuplicateDecision } from '@/types/dashboard';
 
 import ImportReview from '@/components/import/ImportReview.vue';
 import AppShell from '@/components/layout/AppShell.vue';
@@ -20,6 +21,7 @@ const confirmDialog = useConfirm();
 const toast = useToast();
 const { data, error, importLoading } = storeToRefs(dashboardStore);
 const selectedAccountId = ref('');
+const possibleDuplicateDecisions = ref<Record<string, PossibleDuplicateDecision>>({});
 
 const creditCardOptions = computed(() => [
   { label: 'Sem cartão selecionado', value: '' },
@@ -29,16 +31,36 @@ const creditCardOptions = computed(() => [
 ]);
 
 const isCreditCardPreview = computed(() => data.value.importPreview.some((row) => row.source === 'nubank_credit_card'));
-const confirmDisabled = computed(() => isCreditCardPreview.value && !selectedAccountId.value);
-const falseDuplicateCount = computed(() => data.value.importPreview.filter((row) => row.falseDuplicate).length);
+const possibleDuplicateRows = computed(() => data.value.importPreview.filter((row) => row.status === 'possible_duplicate'));
+const pendingPossibleDuplicateCount = computed(
+  () => possibleDuplicateRows.value.filter((row) => !possibleDuplicateDecisions.value[row.id]).length,
+);
+const acceptedPossibleDuplicateRowIds = computed(() =>
+  Object.entries(possibleDuplicateDecisions.value)
+    .filter(([, decision]) => decision === 'not_duplicate')
+    .map(([rowId]) => rowId),
+);
+const confirmedDuplicateRowIds = computed(() =>
+  Object.entries(possibleDuplicateDecisions.value)
+    .filter(([, decision]) => decision === 'duplicate')
+    .map(([rowId]) => rowId),
+);
+const confirmDisabled = computed(
+  () => (isCreditCardPreview.value && !selectedAccountId.value) || pendingPossibleDuplicateCount.value > 0,
+);
+const possibleDuplicateCount = computed(() =>
+  data.value.importPreview.filter((row) => row.status === 'possible_duplicate').length,
+);
 const cardContextLabel = computed(() =>
   isCreditCardPreview.value ? 'obrigatório para fatura de cartão' : 'opcional para fatura de cartão',
 );
 const confirmHint = computed(() =>
-  confirmDisabled.value
+  isCreditCardPreview.value && !selectedAccountId.value
     ? 'Selecione o cartão desta fatura para confirmar a importação.'
-    : falseDuplicateCount.value
-      ? `${falseDuplicateCount.value} falsa(s) duplicidade(s) serão importadas se você confirmar.`
+    : pendingPossibleDuplicateCount.value
+      ? `Escolha uma decisão para ${pendingPossibleDuplicateCount.value} possível(is) duplicidade(s).`
+      : possibleDuplicateCount.value
+        ? `${acceptedPossibleDuplicateRowIds.value.length} nova(s) e ${confirmedDuplicateRowIds.value.length} duplicada(s) decididas.`
       : '',
 );
 
@@ -47,14 +69,39 @@ onMounted(() => {
   void accountsStore.refresh();
 });
 
+watch(
+  () => data.value.importPreview.map((row) => row.id),
+  (rowIds) => {
+    possibleDuplicateDecisions.value = Object.fromEntries(
+      Object.entries(possibleDuplicateDecisions.value).filter(([rowId]) => rowIds.includes(rowId)),
+    );
+  },
+);
+
+function decidePossibleDuplicate(rowId: string, decision: PossibleDuplicateDecision) {
+  possibleDuplicateDecisions.value = {
+    ...possibleDuplicateDecisions.value,
+    [rowId]: decision,
+  };
+}
+
 async function confirmImport() {
   if (confirmDisabled.value) {
-    toast.error('Selecione o cartão desta fatura para confirmar a importação');
+    toast.error(
+      pendingPossibleDuplicateCount.value > 0
+        ? 'Confirme as possíveis duplicidades antes de importar'
+        : 'Selecione o cartão desta fatura para confirmar a importação',
+    );
     return;
   }
 
   try {
-    await dashboardStore.confirmImport(selectedAccountId.value);
+    await dashboardStore.confirmImport(
+      selectedAccountId.value,
+      acceptedPossibleDuplicateRowIds.value,
+      confirmedDuplicateRowIds.value,
+    );
+    possibleDuplicateDecisions.value = {};
     toast.success('Importação confirmada');
   } catch {
     toast.error('Não foi possível confirmar a importação');
@@ -108,9 +155,11 @@ async function discardPreview() {
       :loading="importLoading"
       :confirm-disabled="confirmDisabled"
       :confirm-hint="confirmHint"
+      :possible-duplicate-decisions="possibleDuplicateDecisions"
       @confirm="confirmImport"
       @discard="discardPreview"
       @select-file="dashboardStore.previewImport"
+      @decide-possible-duplicate="decidePossibleDuplicate"
     />
   </AppShell>
 </template>

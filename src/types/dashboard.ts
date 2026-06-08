@@ -1,4 +1,5 @@
 export type ThemeName = 'dark' | 'light';
+export type PossibleDuplicateDecision = 'not_duplicate' | 'duplicate';
 
 export interface CategoryAmount {
   name: string;
@@ -48,12 +49,22 @@ export interface ImportPreviewRow {
   id: string;
   batchId: string;
   date: string;
+  applicationDate: string | null;
   description: string;
   source: string;
   suggestedCategory: string;
   value: number;
-  status: 'new' | 'duplicate' | 'review';
-  falseDuplicate?: boolean;
+  status: 'new' | 'duplicate' | 'possible_duplicate' | 'review';
+  duplicateCandidates: ImportDuplicateCandidate[];
+}
+
+export interface ImportDuplicateCandidate {
+  id?: string;
+  description: string;
+  applicationDate: string;
+  amountCents: number;
+  source: string;
+  accountName?: string | null;
 }
 
 export interface DashboardData {

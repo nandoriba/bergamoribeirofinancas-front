@@ -1,30 +1,41 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-import type { ImportPreviewRow } from '@/types/dashboard';
+import type { ImportPreviewRow, PossibleDuplicateDecision } from '@/types/dashboard';
 import { formatCurrency } from '@/utils/format';
 
 import IconGlyph from '@/components/common/IconGlyph.vue';
 
-defineProps<{
+const props = defineProps<{
   rows: ImportPreviewRow[];
   loading: boolean;
   confirmDisabled?: boolean;
   confirmHint?: string;
+  possibleDuplicateDecisions: Record<string, PossibleDuplicateDecision>;
 }>();
 
 const emit = defineEmits<{
   selectFile: [file: File];
   confirm: [];
   discard: [];
+  decidePossibleDuplicate: [rowId: string, decision: PossibleDuplicateDecision];
 }>();
 
 const fileInput = ref<HTMLInputElement | null>(null);
+const expandedRowIds = ref<string[]>([]);
 
 const statusLabel: Record<ImportPreviewRow['status'], string> = {
   new: 'Novo',
   duplicate: 'Duplicado',
+  possible_duplicate: 'Possível Duplicidade',
   review: 'Revisar',
+};
+
+const statusClass: Record<ImportPreviewRow['status'], string> = {
+  new: 'new',
+  duplicate: 'duplicate',
+  possible_duplicate: 'possible-duplicate',
+  review: 'review',
 };
 
 function openFileDialog() {
@@ -38,6 +49,34 @@ function handleFileChange(event: Event) {
     emit('selectFile', file);
   }
   input.value = '';
+}
+
+function formatApplicationDate(value: string | null) {
+  if (!value) return '-';
+  const [year, month, day] = value.split('-');
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
+function isExpanded(rowId: string) {
+  return expandedRowIds.value.includes(rowId);
+}
+
+function toggleDetails(rowId: string) {
+  expandedRowIds.value = isExpanded(rowId)
+    ? expandedRowIds.value.filter((id) => id !== rowId)
+    : [...expandedRowIds.value, rowId];
+}
+
+function decide(rowId: string, decision: PossibleDuplicateDecision) {
+  emit('decidePossibleDuplicate', rowId, decision);
+}
+
+function handleDecisionChange(rowId: string, event: Event) {
+  const value = (event.target as HTMLSelectElement).value;
+  if (value === 'not_duplicate' || value === 'duplicate') {
+    decide(rowId, value);
+  }
 }
 </script>
 
@@ -80,36 +119,101 @@ function handleFileChange(event: Event) {
         <table class="data-table">
           <thead>
             <tr>
-              <th>Data</th>
+              <th>Data de aplicação</th>
               <th>Descrição</th>
               <th>Origem</th>
               <th>Categoria sugerida</th>
               <th>Status</th>
+              <th>Confirmação</th>
               <th class="num-col">
                 Valor
               </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in rows" :key="row.id">
-              <td class="num">
-                {{ row.date }}
-              </td>
-              <td class="strong">
-                {{ row.description }}
-              </td>
-              <td>{{ row.source }}</td>
-              <td>{{ row.suggestedCategory }}</td>
-              <td>
-                <span class="status-badge" :class="row.status">{{ statusLabel[row.status] }}</span>
-                <span v-if="row.falseDuplicate" class="status-badge false-duplicate">Falsa duplicidade</span>
-              </td>
-              <td class="num num-col" :class="row.value < 0 ? 'expense' : 'income'">
-                {{ row.value < 0 ? '-' : '+' }}{{ formatCurrency(Math.abs(row.value)) }}
-              </td>
-            </tr>
+            <template v-for="row in rows" :key="row.id">
+              <tr>
+                <td class="num">
+                  {{ formatApplicationDate(row.applicationDate) }}
+                </td>
+                <td class="strong">
+                  {{ row.description }}
+                </td>
+                <td>{{ row.source }}</td>
+                <td>{{ row.suggestedCategory }}</td>
+                <td>
+                  <div class="status-cell">
+                    <span class="status-badge" :class="statusClass[row.status]">{{ statusLabel[row.status] }}</span>
+                    <button
+                      v-if="row.status === 'possible_duplicate'"
+                      class="inline-icon-btn"
+                      type="button"
+                      :aria-expanded="isExpanded(row.id)"
+                      :aria-label="`${isExpanded(row.id) ? 'Ocultar' : 'Ver'} possíveis duplicidades de ${row.description}`"
+                      :title="`${isExpanded(row.id) ? 'Ocultar' : 'Ver'} possíveis duplicidades`"
+                      @click="toggleDetails(row.id)"
+                    >
+                      <IconGlyph name="info" :size="14" />
+                    </button>
+                  </div>
+                </td>
+                <td>
+                  <div v-if="row.status === 'possible_duplicate'" class="duplicate-decision-group">
+                    <select
+                      class="form-control duplicate-decision-select"
+                      :value="possibleDuplicateDecisions[row.id] ?? ''"
+                      :aria-label="`Decisão da possível duplicidade de ${row.description}`"
+                      @change="handleDecisionChange(row.id, $event)"
+                    >
+                      <option value="" disabled>
+                        Escolha
+                      </option>
+                      <option value="not_duplicate">
+                        Não é duplicidade
+                      </option>
+                      <option value="duplicate">
+                        Confirmar duplicidade
+                      </option>
+                    </select>
+                  </div>
+                  <span v-else class="muted-cell">-</span>
+                </td>
+                <td class="num num-col" :class="row.value < 0 ? 'expense' : 'income'">
+                  {{ row.value < 0 ? '-' : '+' }}{{ formatCurrency(Math.abs(row.value)) }}
+                </td>
+              </tr>
+              <tr
+                v-if="row.status === 'possible_duplicate' && isExpanded(row.id)"
+                class="duplicate-detail-row"
+              >
+                <td colspan="7">
+                  <div class="duplicate-detail">
+                    <div class="duplicate-detail-head">
+                      <strong>Itens encontrados com mesmo valor e data de aplicação</strong>
+                      <span>{{ row.duplicateCandidates.length }} candidato(s)</span>
+                    </div>
+                    <div class="duplicate-candidates">
+                      <div
+                        v-for="candidate in row.duplicateCandidates"
+                        :key="`${candidate.source}-${candidate.id ?? candidate.description}-${candidate.applicationDate}`"
+                        class="duplicate-candidate"
+                      >
+                        <span>{{ candidate.source }}</span>
+                        <strong>{{ candidate.description }}</strong>
+                        <span>{{ formatApplicationDate(candidate.applicationDate) }}</span>
+                        <span>{{ formatCurrency(Math.abs(candidate.amountCents)) }}</span>
+                        <span v-if="candidate.accountName">{{ candidate.accountName }}</span>
+                      </div>
+                      <p v-if="row.duplicateCandidates.length === 0" class="duplicate-empty">
+                        Nenhuma referência de comparação foi retornada pela API para esta linha.
+                      </p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
             <tr v-if="rows.length === 0">
-              <td colspan="6" class="empty-cell">
+              <td colspan="7" class="empty-cell">
                 Nenhuma prévia carregada
               </td>
             </tr>

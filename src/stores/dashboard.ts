@@ -68,6 +68,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
         importPreview: response.rows.map((row) => ({
           ...row,
           batchId: row.batchId || response.batchId,
+          duplicateCandidates: row.duplicateCandidates ?? [],
         })),
       };
     } catch (err) {
@@ -78,14 +79,23 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
-  async function confirmImport(accountId?: string) {
+  async function confirmImport(
+    accountId?: string,
+    acceptedPossibleDuplicateRowIds: string[] = [],
+    confirmedDuplicateRowIds: string[] = [],
+  ) {
     if (!importBatchId.value) return;
     importLoading.value = true;
     error.value = null;
     try {
       await apiFetch('/imports/confirm', {
         method: 'POST',
-        body: { batchId: importBatchId.value, accountId: accountId || undefined },
+        body: {
+          batchId: importBatchId.value,
+          accountId: accountId || undefined,
+          acceptedPossibleDuplicateRowIds,
+          confirmedDuplicateRowIds,
+        },
       });
       importBatchId.value = null;
       await refreshDashboard();

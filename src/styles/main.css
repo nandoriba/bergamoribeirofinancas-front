@@ -1194,9 +1194,105 @@ a:focus-visible {
   color: #d99090;
 }
 
+.status-badge.possible-duplicate,
 .status-badge.false-duplicate {
-  margin-left: 6px;
   color: #e0c278;
+}
+
+.status-cell {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.inline-icon-btn {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  color: var(--text-2);
+  cursor: pointer;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.inline-icon-btn:hover,
+.inline-icon-btn:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.duplicate-decision-group {
+  width: 176px;
+}
+
+.duplicate-decision-select {
+  min-height: 32px;
+  padding: 6px 9px;
+  font-size: 12px;
+}
+
+.muted-cell {
+  color: var(--text-3);
+}
+
+.duplicate-detail-row td {
+  padding-top: 0;
+  background: color-mix(in srgb, var(--bg-elev-2) 58%, transparent);
+}
+
+.duplicate-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.duplicate-detail-head,
+.duplicate-candidate {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.duplicate-detail-head strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.duplicate-detail-head span,
+.duplicate-candidate span {
+  color: var(--text-3);
+}
+
+.duplicate-candidates {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.duplicate-empty {
+  margin: 0;
+  color: var(--text-3);
+}
+
+.duplicate-candidate {
+  min-height: 34px;
+  padding: 7px 9px;
+  background: var(--bg-input);
+  border: 1px solid var(--divider);
+  border-radius: 7px;
+}
+
+.duplicate-candidate strong {
+  min-width: 220px;
+  color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .import-review {
