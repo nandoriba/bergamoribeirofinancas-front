@@ -41,7 +41,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      data.value = await apiFetch<DashboardData>(`/dashboard?month=${selectedMonth.value}&family=true`);
+      const response = await apiFetch<DashboardData>(`/dashboard?month=${selectedMonth.value}&family=true`);
+      data.value = response;
+      importBatchId.value = response.importPreview[0]?.batchId ?? null;
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Falha ao carregar dashboard';
       data.value = createEmptyDashboard(selectedMonth.value);
@@ -61,7 +63,13 @@ export const useDashboardStore = defineStore('dashboard', () => {
         body: formData,
       });
       importBatchId.value = response.batchId;
-      data.value = { ...data.value, importPreview: response.rows };
+      data.value = {
+        ...data.value,
+        importPreview: response.rows.map((row) => ({
+          ...row,
+          batchId: row.batchId || response.batchId,
+        })),
+      };
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Falha ao importar CSV';
       throw err;
@@ -89,9 +97,41 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
-  function discardImportPreview() {
-    importBatchId.value = null;
-    data.value = { ...data.value, importPreview: [] };
+  async function discardImportPreview() {
+    if (importLoading.value) return;
+
+    const batchIds = new Set<string>();
+    for (const row of data.value.importPreview) {
+      if (row.batchId) {
+        batchIds.add(row.batchId);
+      }
+    }
+
+    if (importBatchId.value) {
+      batchIds.add(importBatchId.value);
+    }
+
+    if (batchIds.size === 0) return;
+
+    importLoading.value = true;
+    error.value = null;
+    try {
+      await Promise.all(
+        [...batchIds].map((batchId) =>
+          apiFetch('/imports/discard', {
+            method: 'POST',
+            body: { batchId },
+          }),
+        ),
+      );
+      importBatchId.value = null;
+      data.value = { ...data.value, importPreview: [] };
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Falha ao descartar prévia';
+      throw err;
+    } finally {
+      importLoading.value = false;
+    }
   }
 
   return {

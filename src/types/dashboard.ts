@@ -46,6 +46,7 @@ export interface TransactionItem {
 
 export interface ImportPreviewRow {
   id: string;
+  batchId: string;
   date: string;
   description: string;
   source: string;

@@ -10,10 +10,14 @@ import { useDashboardStore } from '@/stores/dashboard';
 
 import ImportReview from '@/components/import/ImportReview.vue';
 import AppShell from '@/components/layout/AppShell.vue';
+import { useConfirm } from '@/composables/useConfirm';
+import { useToast } from '@/composables/useToast';
 
 const dashboardStore = useDashboardStore();
 const accountsStore = useAccountsStore();
 const authStore = useAuthStore();
+const confirmDialog = useConfirm();
+const toast = useToast();
 const { data, error, importLoading } = storeToRefs(dashboardStore);
 const selectedAccountId = ref('');
 
@@ -28,6 +32,27 @@ onMounted(() => {
   void dashboardStore.refreshDashboard();
   void accountsStore.refresh();
 });
+
+async function discardPreview() {
+  if (importLoading.value || data.value.importPreview.length === 0) return;
+
+  const confirmed = await confirmDialog.confirm({
+    title: 'Descartar prévia',
+    message:
+      'Descartar esta prévia de importação? As linhas serão marcadas como ignoradas e não voltarão ao atualizar a tela.',
+    confirmLabel: 'Descartar',
+    destructive: true,
+  });
+
+  if (!confirmed) return;
+
+  try {
+    await dashboardStore.discardImportPreview();
+    toast.success('Prévia descartada');
+  } catch {
+    toast.error('Não foi possível descartar a prévia');
+  }
+}
 </script>
 
 <template>
@@ -54,7 +79,7 @@ onMounted(() => {
       :rows="data.importPreview"
       :loading="importLoading"
       @confirm="dashboardStore.confirmImport(selectedAccountId)"
-      @discard="dashboardStore.discardImportPreview"
+      @discard="discardPreview"
       @select-file="dashboardStore.previewImport"
     />
   </AppShell>
