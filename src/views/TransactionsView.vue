@@ -70,13 +70,29 @@ const profileOptions = computed(() => [
 
 const categoryOptions = computed(() => [
   { label: 'Todas as categorias', value: '' },
-  ...categoriesStore.items.map((category) => ({ label: category.name, value: category.id })),
+  ...operationalCategoryOptions.value,
+  ...categoriesStore.items
+    .filter((category) => category.name !== 'Cartão')
+    .map((category) => ({ label: category.name, value: `category:${category.id}` })),
 ]);
+
+const operationalCategoryOptions = computed(() => {
+  const options = new Map<string, string>();
+  for (const transaction of items.value) {
+    const category = transaction.operationalCategory;
+    if (category?.key.startsWith('system:')) {
+      options.set(category.key, category.name);
+    }
+  }
+  return [...options.entries()]
+    .sort(([, a], [, b]) => a.localeCompare(b, 'pt-BR'))
+    .map(([value, label]) => ({ label, value }));
+});
 
 const filteredItems = computed(() =>
   items.value.filter((transaction) => {
     const profileMatch = !profileFilter.value || transaction.memberProfileId === profileFilter.value;
-    const categoryMatch = !categoryFilter.value || transaction.categoryId === categoryFilter.value;
+    const categoryMatch = !categoryFilter.value || transaction.operationalCategory?.key === categoryFilter.value;
     return profileMatch && categoryMatch;
   }),
 );
@@ -262,7 +278,7 @@ function duplicateMessage(error: ApiError) {
           {{ item.account?.name ?? 'Sem conta' }}
         </template>
         <template #cell-category="{ item }">
-          {{ item.category?.name ?? 'Sem categoria' }}
+          {{ item.operationalCategory?.name ?? item.category?.name ?? 'Sem categoria' }}
         </template>
         <template #cell-memberProfile="{ item }">
           {{ item.memberProfile?.displayName ?? 'Perfil' }}

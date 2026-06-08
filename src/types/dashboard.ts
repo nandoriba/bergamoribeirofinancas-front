@@ -11,6 +11,13 @@ export interface DonutSlice extends CategoryAmount {
   pct: number;
 }
 
+export interface BalanceComposition {
+  title: string;
+  totalLabel: string;
+  totalValue: number;
+  slices: DonutSlice[];
+}
+
 export interface AlertItem {
   kind: 'warn' | 'info';
   icon: 'card' | 'repeat' | 'split';
@@ -105,6 +112,8 @@ export interface DashboardData {
   cartaoDiariaProjetadaSpark: number[];
   donutSlices: DonutSlice[];
   despesaTotalMes: number;
+  saldoComposicaoConfirmada: BalanceComposition;
+  saldoComposicaoProjetada: BalanceComposition;
   transactions: TransactionItem[];
   importPreview: ImportPreviewRow[];
 }

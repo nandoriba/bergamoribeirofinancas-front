@@ -203,6 +203,18 @@ function createEmptyDashboard(monthRef: string): DashboardData {
     cartaoDiariaProjetadaSpark: new Array(31).fill(0),
     donutSlices: [],
     despesaTotalMes: 0,
+    saldoComposicaoConfirmada: {
+      title: 'Composição confirmada',
+      totalLabel: 'CONFIRMADO',
+      totalValue: 0,
+      slices: [],
+    },
+    saldoComposicaoProjetada: {
+      title: 'Composição projetada',
+      totalLabel: 'PROJETADO',
+      totalValue: 0,
+      slices: [],
+    },
     transactions: [],
     importPreview: [],
   };

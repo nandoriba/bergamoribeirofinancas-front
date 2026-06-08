@@ -5,10 +5,10 @@ import { onMounted } from 'vue';
 import { useDashboardStore } from '@/stores/dashboard';
 
 import AlertsPanel from '@/components/dashboard/AlertsPanel.vue';
+import BalanceCompositionCharts from '@/components/dashboard/BalanceCompositionCharts.vue';
 import DonutChart from '@/components/dashboard/DonutChart.vue';
 import InstallmentsPanel from '@/components/dashboard/InstallmentsPanel.vue';
 import KpiGrid from '@/components/dashboard/KpiGrid.vue';
-import LineChart from '@/components/dashboard/LineChart.vue';
 import TopCategoriesPanel from '@/components/dashboard/TopCategoriesPanel.vue';
 import AppShell from '@/components/layout/AppShell.vue';
 
@@ -31,9 +31,9 @@ onMounted(() => {
 
     <KpiGrid :data="data" />
 
-    <section class="mid-grid" aria-label="Gráficos do balanço">
+    <section class="mid-grid dashboard-summary-grid" aria-label="Gráficos do balanço">
       <DonutChart :data="data" />
-      <LineChart :data="data" />
+      <BalanceCompositionCharts :data="data" />
     </section>
 
     <section class="bottom-grid" aria-label="Resumo operacional">

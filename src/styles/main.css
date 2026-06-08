@@ -745,6 +745,10 @@ a:focus-visible {
   gap: 14px;
 }
 
+.dashboard-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .bottom-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -785,6 +789,26 @@ a:focus-visible {
 .donut-svg {
   width: 200px;
   height: 200px;
+}
+
+.balance-composition-card {
+  min-width: 0;
+}
+
+.balance-donut-row {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.balance-donut-svg {
+  width: 168px;
+  height: 168px;
+}
+
+.balance-donut-legend .legend-row {
+  grid-template-columns: 12px minmax(0, 1fr) 44px 86px;
 }
 
 .chart-label {
@@ -1944,6 +1968,14 @@ textarea.form-control {
   .mid-grid {
     grid-template-columns: 1fr;
   }
+
+  .dashboard-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-summary-grid > .card:first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 920px) {
@@ -2026,8 +2058,21 @@ textarea.form-control {
     justify-items: center;
   }
 
+  .balance-donut-row {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
   .donut-legend {
     width: 100%;
+  }
+
+  .dashboard-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-summary-grid > .card:first-child {
+    grid-column: auto;
   }
 
   .upload-panel,

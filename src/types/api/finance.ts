@@ -84,6 +84,11 @@ export interface Transaction {
   category?: Category | null;
   invoice?: Invoice | null;
   memberProfile?: { id: string; displayName: string };
+  operationalCategory?: {
+    key: string;
+    name: string;
+    color: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
