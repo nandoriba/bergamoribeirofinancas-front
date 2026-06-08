@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useDashboardStore } from '@/stores/dashboard';
 
+import FutureBadge from '@/components/common/FutureBadge.vue';
 import IconGlyph from '@/components/common/IconGlyph.vue';
 import MonthSelector from '@/components/layout/MonthSelector.vue';
 import ThemeToggle from '@/components/layout/ThemeToggle.vue';
@@ -68,6 +69,7 @@ async function logout() {
       @previous="dashboardStore.previousMonth"
       @next="dashboardStore.nextMonth"
     />
+    <FutureBadge v-if="dashboardStore.isFutureMonth" />
 
     <button class="icon-btn" type="button" aria-label="Notificações" title="Notificações">
       <IconGlyph name="bell" :size="15" />

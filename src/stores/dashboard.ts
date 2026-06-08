@@ -20,6 +20,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
     return `${MONTHS[month - 1]} ${year}`;
   });
 
+  const isFutureMonth = computed(() => selectedMonth.value > toMonthKey(new Date()));
+
   function previousMonth() {
     selectedMonth.value = shiftMonth(selectedMonth.value, -1);
     void refreshDashboard();
@@ -68,14 +70,14 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
-  async function confirmImport() {
+  async function confirmImport(accountId?: string) {
     if (!importBatchId.value) return;
     importLoading.value = true;
     error.value = null;
     try {
       await apiFetch('/imports/confirm', {
         method: 'POST',
-        body: { batchId: importBatchId.value },
+        body: { batchId: importBatchId.value, accountId: accountId || undefined },
       });
       importBatchId.value = null;
       await refreshDashboard();
@@ -101,6 +103,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     importBatchId,
     importLoading,
     isLoading,
+    isFutureMonth,
     monthLabel,
     nextMonth,
     previewImport,

@@ -28,9 +28,46 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Importar CSV' },
   },
   {
-    path: '/:section(faturas|recorrentes|parcelamentos|categorias|contas|relatorios|configuracoes)',
-    name: 'placeholder',
-    component: () => import('@/views/PlaceholderView.vue'),
+    path: '/categorias',
+    name: 'categories',
+    component: () => import('@/views/CategoriesView.vue'),
+    meta: { title: 'Categorias' },
+  },
+  {
+    path: '/faturas',
+    name: 'invoices',
+    component: () => import('@/views/InvoicesView.vue'),
+    meta: { title: 'Faturas' },
+  },
+  {
+    path: '/recorrentes',
+    name: 'recurring',
+    component: () => import('@/views/RecurringView.vue'),
+    meta: { title: 'Recorrentes' },
+  },
+  {
+    path: '/parcelamentos',
+    name: 'installments',
+    component: () => import('@/views/InstallmentsView.vue'),
+    meta: { title: 'Parcelamentos' },
+  },
+  {
+    path: '/relatorios',
+    name: 'reports',
+    component: () => import('@/views/ReportsView.vue'),
+    meta: { title: 'Relatórios' },
+  },
+  {
+    path: '/configuracoes',
+    name: 'settings',
+    component: () => import('@/views/SettingsView.vue'),
+    meta: { title: 'Configurações' },
+  },
+  {
+    path: '/contas',
+    name: 'accounts',
+    component: () => import('@/views/AccountsView.vue'),
+    meta: { title: 'Contas' },
   },
 ];
 
