@@ -91,14 +91,14 @@ async function remove(template: RecurringTemplate) {
   if (!canMutate(template)) return;
   const confirmed = await confirmDialog.confirm({
     title: 'Excluir recorrente',
-    message: `Excluir "${template.description}"? Lançamentos já materializados não serão removidos automaticamente.`,
+    message: `Excluir "${template.description}"? O recorrente será ocultado e não gerará novas ocorrências, mas o histórico já lançado manterá a rastreabilidade.`,
     confirmLabel: 'Excluir',
     destructive: true,
   });
   if (!confirmed) return;
   try {
     await recurringStore.remove(template.id);
-    toast.success('Recorrente excluído');
+    toast.success('Recorrente excluído sem apagar histórico');
     await Promise.all([recurringStore.refresh(), dashboardStore.refreshDashboard()]);
   } catch (err) {
     toast.error(err instanceof Error ? err.message : 'Falha ao excluir recorrente');

@@ -109,6 +109,7 @@ export interface RecurringTemplate {
   account?: Account | null;
   category?: Category | null;
   memberProfile?: { id: string; displayName: string };
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

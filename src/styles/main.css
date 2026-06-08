@@ -552,6 +552,22 @@ a:focus-visible {
   border-color: rgba(217, 144, 144, 0.18);
 }
 
+.duplicate-alert {
+  display: grid;
+  gap: 5px;
+  padding: 11px 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #f0c982;
+  background: rgba(240, 201, 130, 0.08);
+  border: 1px solid rgba(240, 201, 130, 0.2);
+  border-radius: 7px;
+}
+
+.duplicate-alert strong {
+  color: #f4d9a0;
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1405,6 +1421,10 @@ a:focus-visible {
   background: var(--bg-hover);
 }
 
+.quiet-btn:disabled:hover {
+  background: var(--bg-elev-2);
+}
+
 .primary-btn.danger {
   background: var(--negative);
   border-color: color-mix(in srgb, var(--negative) 82%, #fff);
@@ -1543,6 +1563,29 @@ textarea.form-control {
   background: var(--bg-elev-2);
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+.transactions-filter-strip {
+  grid-template-columns: minmax(150px, 210px) minmax(210px, 290px) minmax(130px, 170px) minmax(240px, 1fr) auto;
+}
+
+.transaction-search-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+}
+
+.transaction-search-clear {
+  width: 38px;
+  height: 38px;
+  background: var(--bg-input);
+}
+
+.transaction-search-clear:disabled:hover {
+  color: var(--text-2);
+  background: var(--bg-input);
 }
 
 .filter-badge {
@@ -2086,6 +2129,14 @@ textarea.form-control {
     justify-content: flex-start;
     flex-wrap: wrap;
   }
+
+  .transactions-filter-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .transactions-filter-strip .filter-badge {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 560px) {
@@ -2117,6 +2168,10 @@ textarea.form-control {
   .month-pill {
     flex: 1;
     justify-content: center;
+  }
+
+  .transactions-filter-strip {
+    grid-template-columns: 1fr;
   }
 
   .content {

@@ -15,6 +15,7 @@ export interface CrudResource<TItem, TCreate, TUpdate> {
   create: (payload: TCreate) => Promise<TItem>;
   update: (id: string, payload: TUpdate) => Promise<TItem>;
   remove: (id: string) => Promise<void>;
+  clearError: () => void;
 }
 
 export function useCrudResource<TItem, TCreate, TUpdate = Partial<TCreate>>(
@@ -56,6 +57,9 @@ export function useCrudResource<TItem, TCreate, TUpdate = Partial<TCreate>>(
     items,
     isLoading,
     error,
+    clearError: () => {
+      error.value = null;
+    },
     refresh,
     create: (payload) => mutate(() => options.service.create(payload)),
     update: (id, payload) => mutate(() => options.service.update(id, payload)),

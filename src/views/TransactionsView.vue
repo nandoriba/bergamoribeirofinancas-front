@@ -2,7 +2,9 @@
 import { storeToRefs } from 'pinia';
 import { computed, onMounted, ref, watch } from 'vue';
 
+import CurrencyInput from '@/components/common/CurrencyInput.vue';
 import DataTable from '@/components/common/DataTable.vue';
+import DateInput from '@/components/common/DateInput.vue';
 import FormField from '@/components/common/FormField.vue';
 import FutureBadge from '@/components/common/FutureBadge.vue';
 import IconGlyph from '@/components/common/IconGlyph.vue';
@@ -13,6 +15,7 @@ import AppShell from '@/components/layout/AppShell.vue';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 import { ApiError } from '@/lib/api';
+import type { TransactionPayload } from '@/services/transactions';
 import { useAccountsStore } from '@/stores/accounts';
 import { useAuthStore } from '@/stores/auth';
 import { useCategoriesStore } from '@/stores/categories';
@@ -39,9 +42,23 @@ const toast = useToast();
 
 const { error, isLoading, items } = storeToRefs(transactionsStore);
 const categoryFilter = ref('');
+const descriptionFilter = ref('');
+const applicationDateFilter = ref('');
+const amountFilterCents = ref(0);
 const profileFilter = ref('');
+const searchMode = ref<SearchMode>('description');
 const editing = ref<Transaction | null>(null);
 const modalOpen = ref(false);
+const duplicateWarning = ref<ManualDuplicateWarning | null>(null);
+const pendingDuplicatePayload = ref<TransactionPayload | null>(null);
+
+interface ManualDuplicateWarning {
+  title: string;
+  message: string;
+  canOverride: boolean;
+}
+
+type SearchMode = 'description' | 'amount' | 'applicationDate';
 
 const columns = [
   { key: 'applicationDate', label: 'Aplicação' },
@@ -53,6 +70,12 @@ const columns = [
   { key: 'memberProfile', label: 'Perfil' },
   { key: 'status', label: 'Status' },
   { key: 'amountCents', label: 'Valor', align: 'right' as const },
+];
+
+const searchModeOptions: Array<{ label: string; value: SearchMode }> = [
+  { label: 'Descrição', value: 'description' },
+  { label: 'Valor', value: 'amount' },
+  { label: 'Aplicação', value: 'applicationDate' },
 ];
 
 const ownAccounts = computed(() =>
@@ -89,11 +112,18 @@ const operationalCategoryOptions = computed(() => {
     .map(([value, label]) => ({ label, value }));
 });
 
+const normalizedDescriptionFilter = computed(() => normalizeSearch(descriptionFilter.value));
+const hasActiveSearch = computed(() => {
+  if (searchMode.value === 'amount') return amountFilterCents.value !== 0;
+  if (searchMode.value === 'applicationDate') return Boolean(applicationDateFilter.value);
+  return Boolean(normalizedDescriptionFilter.value);
+});
+
 const filteredItems = computed(() =>
   items.value.filter((transaction) => {
     const profileMatch = !profileFilter.value || transaction.memberProfileId === profileFilter.value;
     const categoryMatch = !categoryFilter.value || transaction.operationalCategory?.key === categoryFilter.value;
-    return profileMatch && categoryMatch;
+    return profileMatch && categoryMatch && matchesActiveSearch(transaction);
   }),
 );
 
@@ -122,16 +152,19 @@ async function refreshTransactions() {
 
 function openCreate() {
   editing.value = null;
+  clearDuplicateWarning();
   modalOpen.value = true;
 }
 
 function openEdit(transaction: Transaction) {
   if (!canMutate(transaction)) return;
   editing.value = transaction;
+  clearDuplicateWarning();
   modalOpen.value = true;
 }
 
 async function save(payload: Parameters<typeof transactionsStore.create>[0]) {
+  clearDuplicateWarning();
   try {
     if (editing.value) {
       await transactionsStore.update(editing.value.id, payload);
@@ -143,27 +176,40 @@ async function save(payload: Parameters<typeof transactionsStore.create>[0]) {
     modalOpen.value = false;
     await Promise.all([refreshTransactions(), invoicesStore.refresh(), dashboardStore.refreshDashboard()]);
   } catch (err) {
-    if (!editing.value && isFalseDuplicateError(err)) {
-      const confirmed = await confirmDialog.confirm({
-        title: 'Possível duplicidade',
-        message: duplicateMessage(err),
-        confirmLabel: 'Salvar mesmo assim',
-      });
-      if (!confirmed) return;
-
-      try {
-        await transactionsStore.create({ ...payload, allowDuplicate: true });
-        toast.success('Lançamento criado no seu perfil');
-        modalOpen.value = false;
-        await Promise.all([refreshTransactions(), invoicesStore.refresh(), dashboardStore.refreshDashboard()]);
-      } catch (retryErr) {
-        toast.error(retryErr instanceof Error ? retryErr.message : 'Falha ao salvar lançamento');
-      }
+    if (!editing.value && isDuplicateError(err)) {
+      transactionsStore.clearError();
+      pendingDuplicatePayload.value = payload;
+      duplicateWarning.value = buildDuplicateWarning(err);
       return;
     }
 
     toast.error(err instanceof Error ? err.message : 'Falha ao salvar lançamento');
   }
+}
+
+async function saveDuplicateOverride() {
+  if (!pendingDuplicatePayload.value) return;
+  try {
+    await transactionsStore.create({ ...pendingDuplicatePayload.value, allowDuplicate: true });
+    toast.success('Lançamento criado no seu perfil');
+    clearDuplicateWarning();
+    modalOpen.value = false;
+    await Promise.all([refreshTransactions(), invoicesStore.refresh(), dashboardStore.refreshDashboard()]);
+  } catch (err) {
+    transactionsStore.clearError();
+    toast.error(err instanceof Error ? err.message : 'Falha ao salvar lançamento');
+  }
+}
+
+function clearDuplicateWarning() {
+  duplicateWarning.value = null;
+  pendingDuplicatePayload.value = null;
+}
+
+function clearActiveSearch() {
+  descriptionFilter.value = '';
+  amountFilterCents.value = 0;
+  applicationDateFilter.value = '';
 }
 
 async function remove(transaction: Transaction) {
@@ -198,14 +244,46 @@ function formatMonth(value: string) {
   return `${month}/${year}`;
 }
 
-function isFalseDuplicateError(error: unknown): error is ApiError {
-  return error instanceof ApiError && error.status === 409 && getErrorCode(error) === 'FALSE_DUPLICATE';
+function normalizeSearch(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim()
+    .toLowerCase();
+}
+
+function matchesActiveSearch(transaction: Transaction) {
+  if (searchMode.value === 'amount') {
+    return amountFilterCents.value === 0 || Math.abs(transaction.amountCents) === Math.abs(amountFilterCents.value);
+  }
+
+  if (searchMode.value === 'applicationDate') {
+    return !applicationDateFilter.value || transaction.applicationDate.slice(0, 10) === applicationDateFilter.value;
+  }
+
+  return !normalizedDescriptionFilter.value || normalizeSearch(transaction.description).includes(normalizedDescriptionFilter.value);
+}
+
+function isDuplicateError(error: unknown): error is ApiError {
+  const code = error instanceof ApiError ? getErrorCode(error) : undefined;
+  return code === 'FALSE_DUPLICATE' || code === 'STRONG_DUPLICATE';
 }
 
 function getErrorCode(error: ApiError) {
   return typeof error.details === 'object' && error.details && 'code' in error.details
     ? (error.details as { code?: unknown }).code
     : undefined;
+}
+
+function buildDuplicateWarning(error: ApiError): ManualDuplicateWarning {
+  const code = getErrorCode(error);
+  const canOverride = code === 'FALSE_DUPLICATE';
+
+  return {
+    title: canOverride ? 'Possível duplicidade' : 'Duplicidade encontrada',
+    message: `${duplicateMessage(error)} ${canOverride ? 'Revise os campos ou salve mesmo assim.' : 'Altere algum campo para salvar.'}`,
+    canOverride,
+  };
 }
 
 function duplicateMessage(error: ApiError) {
@@ -215,12 +293,12 @@ function duplicateMessage(error: ApiError) {
       : undefined;
 
   if (!duplicate) {
-    return 'Já existe um lançamento com o mesmo valor e data de aplicação. Salvar mesmo assim?';
+    return 'Já existe um lançamento com o mesmo valor e data de aplicação.';
   }
 
   const date = duplicate.applicationDate ? formatDate(duplicate.applicationDate) : 'mesma data';
   const amount = duplicate.amountCents !== undefined ? formatCurrency(Math.abs(duplicate.amountCents)) : 'mesmo valor';
-  return `Já existe "${duplicate.description ?? 'outro lançamento'}" em ${date} no valor de ${amount}. Salvar mesmo assim?`;
+  return `Já existe "${duplicate.description ?? 'outro lançamento'}" em ${date} no valor de ${amount}.`;
 }
 </script>
 
@@ -238,19 +316,49 @@ function duplicateMessage(error: ApiError) {
         </button>
       </div>
 
-      <div class="filter-strip">
+      <div class="filter-strip transactions-filter-strip">
         <FormField label="Perfil">
           <Select v-model="profileFilter" :options="profileOptions" />
         </FormField>
         <FormField label="Categoria">
           <Select v-model="categoryFilter" :options="categoryOptions" />
         </FormField>
+        <FormField label="Pesquisar por">
+          <Select v-model="searchMode" :options="searchModeOptions" />
+        </FormField>
+        <div class="transaction-search-control">
+          <FormField v-if="searchMode === 'description'" label="Descrição">
+            <input
+              v-model="descriptionFilter"
+              class="form-control"
+              type="search"
+              autocomplete="off"
+              placeholder="Pesquisar descrição"
+            />
+          </FormField>
+          <FormField v-else-if="searchMode === 'amount'" label="Valor">
+            <CurrencyInput v-model="amountFilterCents" />
+          </FormField>
+          <FormField v-else label="Data de aplicação">
+            <DateInput v-model="applicationDateFilter" />
+          </FormField>
+          <button
+            class="icon-btn transaction-search-clear"
+            type="button"
+            :disabled="!hasActiveSearch"
+            title="Limpar pesquisa"
+            aria-label="Limpar pesquisa"
+            @click="clearActiveSearch"
+          >
+            <IconGlyph name="close" :size="15" />
+          </button>
+        </div>
         <div v-if="isFutureMonth" class="filter-badge">
           <FutureBadge />
         </div>
       </div>
 
-      <div v-if="error" class="state-banner error" role="alert">
+      <div v-if="error && !modalOpen" class="state-banner error" role="alert">
         {{ error }}
       </div>
       <div v-else-if="isLoading" class="state-banner">
@@ -312,8 +420,11 @@ function duplicateMessage(error: ApiError) {
         :accounts="ownAccounts"
         :categories="categoriesStore.items"
         :invoices="ownInvoices"
+        :duplicate-warning="duplicateWarning"
         :loading="isLoading"
         @cancel="modalOpen = false"
+        @change="clearDuplicateWarning"
+        @confirm-duplicate="saveDuplicateOverride"
         @submit="save"
       />
     </Modal>

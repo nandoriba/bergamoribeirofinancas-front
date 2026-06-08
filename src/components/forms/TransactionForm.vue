@@ -25,11 +25,18 @@ const props = defineProps<{
   accounts: Account[];
   categories: Category[];
   invoices: Invoice[];
+  duplicateWarning?: {
+    title: string;
+    message: string;
+    canOverride: boolean;
+  } | null;
   loading?: boolean;
 }>();
 
 const emit = defineEmits<{
   cancel: [];
+  change: [];
+  confirmDuplicate: [];
   submit: [payload: TransactionPayload];
 }>();
 
@@ -96,7 +103,16 @@ watch(
   },
 );
 
+watch(
+  form,
+  () => {
+    emit('change');
+  },
+  { deep: true },
+);
+
 function submit() {
+  if (props.duplicateWarning) return;
   emit('submit', {
     applicationDate: form.applicationDate,
     referenceMonth: `${form.referenceMonth}-01`,
@@ -179,11 +195,25 @@ function formatMonth(value: string) {
       <textarea v-model="form.notes" class="form-control" maxlength="500" />
     </FormField>
 
+    <div v-if="duplicateWarning" class="duplicate-alert full" role="alert" aria-live="polite">
+      <strong>{{ duplicateWarning.title }}</strong>
+      <span>{{ duplicateWarning.message }}</span>
+    </div>
+
     <div class="form-actions full">
       <button class="quiet-btn" type="button" @click="emit('cancel')">
         Cancelar
       </button>
-      <button class="primary-btn" type="submit" :disabled="loading || !form.description.trim()">
+      <button
+        v-if="duplicateWarning?.canOverride"
+        class="primary-btn"
+        type="button"
+        :disabled="loading"
+        @click="emit('confirmDuplicate')"
+      >
+        Salvar mesmo assim
+      </button>
+      <button v-else class="primary-btn" type="submit" :disabled="loading || !form.description.trim() || !!duplicateWarning">
         Salvar lançamento
       </button>
     </div>
