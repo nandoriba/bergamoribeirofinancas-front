@@ -58,6 +58,10 @@ function formatApplicationDate(value: string | null) {
   return `${day}/${month}/${year}`;
 }
 
+function formatSignedCurrency(value: number) {
+  return `${value < 0 ? '-' : '+'}${formatCurrency(Math.abs(value))}`;
+}
+
 function isExpanded(rowId: string) {
   return expandedRowIds.value.includes(rowId);
 }
@@ -204,7 +208,7 @@ function handleDecisionChange(rowId: string, event: Event) {
                         <span>{{ candidate.source }}</span>
                         <strong>{{ candidate.description }}</strong>
                         <span>{{ formatApplicationDate(candidate.applicationDate) }}</span>
-                        <span>{{ formatCurrency(Math.abs(candidate.amountCents)) }}</span>
+                        <span>{{ formatSignedCurrency(candidate.amountCents) }}</span>
                         <span v-if="candidate.accountName">{{ candidate.accountName }}</span>
                       </div>
                       <p v-if="row.duplicateCandidates.length === 0" class="duplicate-empty">
