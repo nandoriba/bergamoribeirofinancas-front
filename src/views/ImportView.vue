@@ -30,11 +30,16 @@ const creditCardOptions = computed(() => [
 
 const isCreditCardPreview = computed(() => data.value.importPreview.some((row) => row.source === 'nubank_credit_card'));
 const confirmDisabled = computed(() => isCreditCardPreview.value && !selectedAccountId.value);
+const falseDuplicateCount = computed(() => data.value.importPreview.filter((row) => row.falseDuplicate).length);
 const cardContextLabel = computed(() =>
   isCreditCardPreview.value ? 'obrigatório para fatura de cartão' : 'opcional para fatura de cartão',
 );
 const confirmHint = computed(() =>
-  confirmDisabled.value ? 'Selecione o cartão desta fatura para confirmar a importação.' : '',
+  confirmDisabled.value
+    ? 'Selecione o cartão desta fatura para confirmar a importação.'
+    : falseDuplicateCount.value
+      ? `${falseDuplicateCount.value} falsa(s) duplicidade(s) serão importadas se você confirmar.`
+      : '',
 );
 
 onMounted(() => {

@@ -77,6 +77,7 @@ function openCreate() {
 }
 
 function openEdit(invoice: Invoice) {
+  if (!canMutate(invoice)) return;
   editing.value = invoice;
   modalOpen.value = true;
 }
@@ -99,6 +100,7 @@ async function save(payload: Parameters<typeof invoicesStore.create>[0]) {
 }
 
 async function markAsPaid(invoice: Invoice) {
+  if (!canMutate(invoice)) return;
   if (invoice.status === 'open') {
     toast.error('Feche a fatura antes de marcar como paga');
     return;
@@ -115,6 +117,7 @@ async function markAsPaid(invoice: Invoice) {
 }
 
 async function markAsClosed(invoice: Invoice) {
+  if (!canMutate(invoice)) return;
   try {
     await invoicesStore.update(invoice.id, {
       status: 'closed',
@@ -130,6 +133,7 @@ async function markAsClosed(invoice: Invoice) {
 }
 
 async function remove(invoice: Invoice) {
+  if (!canMutate(invoice)) return;
   const confirmed = await confirmDialog.confirm({
     title: 'Excluir fatura',
     message: `Excluir a fatura de ${invoice.account?.name ?? 'cartão'} em ${formatMonth(invoice.referenceMonth)}?`,
@@ -149,6 +153,10 @@ async function remove(invoice: Invoice) {
 
 function toggle(invoice: Invoice) {
   expandedId.value = expandedId.value === invoice.id ? null : invoice.id;
+}
+
+function canMutate(invoice: Invoice) {
+  return invoice.memberProfileId === authStore.user?.profileId;
 }
 
 function subtotal(invoice: Invoice) {
@@ -249,18 +257,21 @@ function formatDate(value?: string | null) {
             <button class="quiet-btn" type="button" @click="toggle(item)">
               {{ expandedId === item.id ? 'Ocultar' : 'Compras' }}
             </button>
-            <button class="quiet-btn" type="button" @click="openEdit(item)">
-              Editar
-            </button>
-            <button v-if="item.status === 'open'" class="quiet-btn" type="button" @click="markAsClosed(item)">
-              Fechar
-            </button>
-            <button v-else-if="item.status === 'closed'" class="quiet-btn" type="button" @click="markAsPaid(item)">
-              Pagar
-            </button>
-            <button class="quiet-btn" type="button" @click="remove(item)">
-              Excluir
-            </button>
+            <template v-if="canMutate(item)">
+              <button class="quiet-btn" type="button" @click="openEdit(item)">
+                Editar
+              </button>
+              <button v-if="item.status === 'open'" class="quiet-btn" type="button" @click="markAsClosed(item)">
+                Fechar
+              </button>
+              <button v-else-if="item.status === 'closed'" class="quiet-btn" type="button" @click="markAsPaid(item)">
+                Pagar
+              </button>
+              <button class="quiet-btn" type="button" @click="remove(item)">
+                Excluir
+              </button>
+            </template>
+            <span v-else class="muted">Somente leitura</span>
           </div>
         </template>
       </DataTable>

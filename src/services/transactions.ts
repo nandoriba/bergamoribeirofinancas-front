@@ -14,6 +14,7 @@ export interface TransactionPayload {
   categoryId?: string;
   invoiceId?: string;
   notes?: string;
+  allowDuplicate?: boolean;
 }
 
 export const transactionsService = createCrudService<Transaction, TransactionPayload>('/transactions');

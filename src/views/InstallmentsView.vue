@@ -67,6 +67,7 @@ function openCreate() {
 }
 
 function openEdit(plan: InstallmentPlanWithComputed) {
+  if (!canMutate(plan)) return;
   editing.value = plan;
   modalOpen.value = true;
 }
@@ -105,6 +106,7 @@ async function createWithCandidateConfirmation(payload: Parameters<typeof instal
 }
 
 async function remove(plan: InstallmentPlanWithComputed) {
+  if (!canMutate(plan)) return;
   const confirmed = await confirmDialog.confirm({
     title: 'Excluir parcelamento',
     message: `Excluir "${plan.description}"? As parcelas geradas permanecem como lançamentos simples.`,
@@ -123,6 +125,10 @@ async function remove(plan: InstallmentPlanWithComputed) {
 
 function toggle(plan: InstallmentPlanWithComputed) {
   expandedId.value = expandedId.value === plan.id ? null : plan.id;
+}
+
+function canMutate(plan: InstallmentPlanWithComputed) {
+  return plan.memberProfileId === authStore.user?.profileId;
 }
 
 function extractCandidates(err: unknown): InstallmentLinkCandidate[] {
@@ -196,12 +202,15 @@ function formatDate(value: string) {
             <button class="quiet-btn" type="button" @click="toggle(item)">
               {{ expandedId === item.id ? 'Ocultar' : 'Parcelas' }}
             </button>
-            <button class="quiet-btn" type="button" @click="openEdit(item)">
-              Editar
-            </button>
-            <button class="quiet-btn" type="button" @click="remove(item)">
-              Excluir
-            </button>
+            <template v-if="canMutate(item)">
+              <button class="quiet-btn" type="button" @click="openEdit(item)">
+                Editar
+              </button>
+              <button class="quiet-btn" type="button" @click="remove(item)">
+                Excluir
+              </button>
+            </template>
+            <span v-else class="muted">Somente leitura</span>
           </div>
         </template>
       </DataTable>

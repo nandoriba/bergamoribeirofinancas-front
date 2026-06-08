@@ -12,6 +12,7 @@ import TransactionForm from '@/components/forms/TransactionForm.vue';
 import AppShell from '@/components/layout/AppShell.vue';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
+import { ApiError } from '@/lib/api';
 import { useAccountsStore } from '@/stores/accounts';
 import { useAuthStore } from '@/stores/auth';
 import { useCategoriesStore } from '@/stores/categories';
@@ -126,6 +127,25 @@ async function save(payload: Parameters<typeof transactionsStore.create>[0]) {
     modalOpen.value = false;
     await Promise.all([refreshTransactions(), invoicesStore.refresh(), dashboardStore.refreshDashboard()]);
   } catch (err) {
+    if (!editing.value && isFalseDuplicateError(err)) {
+      const confirmed = await confirmDialog.confirm({
+        title: 'Possível duplicidade',
+        message: duplicateMessage(err),
+        confirmLabel: 'Salvar mesmo assim',
+      });
+      if (!confirmed) return;
+
+      try {
+        await transactionsStore.create({ ...payload, allowDuplicate: true });
+        toast.success('Lançamento criado no seu perfil');
+        modalOpen.value = false;
+        await Promise.all([refreshTransactions(), invoicesStore.refresh(), dashboardStore.refreshDashboard()]);
+      } catch (retryErr) {
+        toast.error(retryErr instanceof Error ? retryErr.message : 'Falha ao salvar lançamento');
+      }
+      return;
+    }
+
     toast.error(err instanceof Error ? err.message : 'Falha ao salvar lançamento');
   }
 }
@@ -160,6 +180,31 @@ function formatDate(value: string) {
 function formatMonth(value: string) {
   const [year, month] = value.slice(0, 7).split('-');
   return `${month}/${year}`;
+}
+
+function isFalseDuplicateError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 409 && getErrorCode(error) === 'FALSE_DUPLICATE';
+}
+
+function getErrorCode(error: ApiError) {
+  return typeof error.details === 'object' && error.details && 'code' in error.details
+    ? (error.details as { code?: unknown }).code
+    : undefined;
+}
+
+function duplicateMessage(error: ApiError) {
+  const duplicate =
+    typeof error.details === 'object' && error.details && 'duplicate' in error.details
+      ? (error.details as { duplicate?: { description?: string; amountCents?: number; applicationDate?: string } }).duplicate
+      : undefined;
+
+  if (!duplicate) {
+    return 'Já existe um lançamento com o mesmo valor e data de aplicação. Salvar mesmo assim?';
+  }
+
+  const date = duplicate.applicationDate ? formatDate(duplicate.applicationDate) : 'mesma data';
+  const amount = duplicate.amountCents !== undefined ? formatCurrency(Math.abs(duplicate.amountCents)) : 'mesmo valor';
+  return `Já existe "${duplicate.description ?? 'outro lançamento'}" em ${date} no valor de ${amount}. Salvar mesmo assim?`;
 }
 </script>
 

@@ -10,10 +10,12 @@ import AppShell from '@/components/layout/AppShell.vue';
 import { useConfirm } from '@/composables/useConfirm';
 import { useToast } from '@/composables/useToast';
 import { useAccountsStore } from '@/stores/accounts';
+import { useAuthStore } from '@/stores/auth';
 import { ACCOUNT_TYPE_LABELS, type Account } from '@/types/api';
 import { formatCurrency } from '@/utils/format';
 
 const accountsStore = useAccountsStore();
+const authStore = useAuthStore();
 const { error, isLoading, items } = storeToRefs(accountsStore);
 const confirmDialog = useConfirm();
 const toast = useToast();
@@ -39,6 +41,7 @@ function openCreate() {
 }
 
 function openEdit(account: Account) {
+  if (!canMutate(account)) return;
   editing.value = account;
   modalOpen.value = true;
 }
@@ -60,6 +63,7 @@ async function save(payload: Parameters<typeof accountsStore.create>[0]) {
 }
 
 async function remove(account: Account) {
+  if (!canMutate(account)) return;
   const confirmed = await confirmDialog.confirm({
     title: 'Excluir conta',
     message: `Excluir "${account.name}"? Lançamentos vinculados podem perder a conta.`,
@@ -74,6 +78,10 @@ async function remove(account: Account) {
   } catch (err) {
     toast.error(err instanceof Error ? err.message : 'Falha ao excluir conta');
   }
+}
+
+function canMutate(account: Account) {
+  return account.memberProfileId === authStore.user?.profileId;
 }
 </script>
 
@@ -116,7 +124,7 @@ async function remove(account: Account) {
           {{ formatCurrency(item.initialBalanceCents) }}
         </template>
         <template #actions="{ item }">
-          <div class="row-actions">
+          <div v-if="canMutate(item)" class="row-actions">
             <button class="quiet-btn" type="button" @click="openEdit(item)">
               Editar
             </button>
@@ -124,6 +132,7 @@ async function remove(account: Account) {
               Excluir
             </button>
           </div>
+          <span v-else class="muted">Somente leitura</span>
         </template>
       </DataTable>
     </section>

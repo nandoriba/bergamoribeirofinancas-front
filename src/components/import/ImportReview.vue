@@ -102,6 +102,7 @@ function handleFileChange(event: Event) {
               <td>{{ row.suggestedCategory }}</td>
               <td>
                 <span class="status-badge" :class="row.status">{{ statusLabel[row.status] }}</span>
+                <span v-if="row.falseDuplicate" class="status-badge false-duplicate">Falsa duplicidade</span>
               </td>
               <td class="num num-col" :class="row.value < 0 ? 'expense' : 'income'">
                 {{ row.value < 0 ? '-' : '+' }}{{ formatCurrency(Math.abs(row.value)) }}

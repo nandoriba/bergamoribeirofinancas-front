@@ -53,6 +53,7 @@ export interface ImportPreviewRow {
   suggestedCategory: string;
   value: number;
   status: 'new' | 'duplicate' | 'review';
+  falseDuplicate?: boolean;
 }
 
 export interface DashboardData {

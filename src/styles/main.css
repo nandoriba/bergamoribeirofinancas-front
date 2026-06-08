@@ -1194,6 +1194,11 @@ a:focus-visible {
   color: #d99090;
 }
 
+.status-badge.false-duplicate {
+  margin-left: 6px;
+  color: #e0c278;
+}
+
 .import-review {
   display: flex;
   flex-direction: column;
