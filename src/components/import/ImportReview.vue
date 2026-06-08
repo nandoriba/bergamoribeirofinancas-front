@@ -9,6 +9,8 @@ import IconGlyph from '@/components/common/IconGlyph.vue';
 defineProps<{
   rows: ImportPreviewRow[];
   loading: boolean;
+  confirmDisabled?: boolean;
+  confirmHint?: string;
 }>();
 
 const emit = defineEmits<{
@@ -115,10 +117,16 @@ function handleFileChange(event: Event) {
       </div>
 
       <div class="review-actions">
+        <span v-if="confirmHint" class="field-hint">{{ confirmHint }}</span>
         <button class="quiet-btn" type="button" :disabled="rows.length === 0 || loading" @click="$emit('discard')">
           Descartar
         </button>
-        <button class="primary-btn" type="button" :disabled="rows.length === 0 || loading" @click="$emit('confirm')">
+        <button
+          class="primary-btn"
+          type="button"
+          :disabled="rows.length === 0 || loading || confirmDisabled"
+          @click="$emit('confirm')"
+        >
           <IconGlyph name="check" :size="15" />
           {{ loading ? 'Confirmando...' : 'Confirmar importação' }}
         </button>

@@ -43,8 +43,9 @@ const editing = ref<Transaction | null>(null);
 const modalOpen = ref(false);
 
 const columns = [
-  { key: 'date', label: 'Escrituração' },
+  { key: 'applicationDate', label: 'Aplicação' },
   { key: 'referenceMonth', label: 'Referência' },
+  { key: 'date', label: 'Escrituração' },
   { key: 'description', label: 'Descrição' },
   { key: 'account', label: 'Conta' },
   { key: 'category', label: 'Categoria' },
@@ -99,7 +100,7 @@ watch(
 );
 
 async function refreshTransactions() {
-  await transactionsStore.refresh({ month: dashboardStore.selectedMonth });
+  await transactionsStore.refresh({ referenceMonth: dashboardStore.selectedMonth });
 }
 
 function openCreate() {
@@ -168,7 +169,7 @@ function formatMonth(value: string) {
       <div class="section-head">
         <div>
           <h2>Lançamentos</h2>
-          <span class="meta">{{ filteredItems.length }} itens no mês</span>
+          <span class="meta">{{ filteredItems.length }} itens na referência</span>
         </div>
         <button class="primary-btn" type="button" @click="openCreate">
           <IconGlyph name="plus" />
@@ -195,7 +196,10 @@ function formatMonth(value: string) {
         Carregando lançamentos...
       </div>
 
-      <DataTable :columns="columns" :items="filteredItems" empty-label="Nenhum lançamento no mês selecionado">
+      <DataTable :columns="columns" :items="filteredItems" empty-label="Nenhum lançamento na referência selecionada">
+        <template #cell-applicationDate="{ item }">
+          <span class="num">{{ formatDate(item.applicationDate) }}</span>
+        </template>
         <template #cell-date="{ item }">
           <span class="num">{{ formatDate(item.date) }}</span>
         </template>

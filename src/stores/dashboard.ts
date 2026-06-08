@@ -41,7 +41,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      const response = await apiFetch<DashboardData>(`/dashboard?month=${selectedMonth.value}&family=true`);
+      const response = await apiFetch<DashboardData>(`/dashboard?referenceMonth=${selectedMonth.value}&family=true`);
       data.value = response;
       importBatchId.value = response.importPreview[0]?.batchId ?? null;
     } catch (err) {
@@ -162,6 +162,8 @@ function createEmptyDashboard(monthRef: string): DashboardData {
     today: '',
     saldoAtual: 0,
     saldoFuturo: 0,
+    saldoAtualTotal: 0,
+    saldoProjetadoTotal: 0,
     saldoAnt: 0,
     saldoMaxMes: 0,
     despesaAtual: 0,
@@ -170,6 +172,10 @@ function createEmptyDashboard(monthRef: string): DashboardData {
     cartaoAtual: 0,
     cartaoFuturo: 0,
     cartaoAntMes: 0,
+    parcelasConfirmadasQuantidade: 0,
+    parcelasConfirmadasValorCents: 0,
+    parcelasProjetadasQuantidade: 0,
+    parcelasProjetadasValorCents: 0,
     receitaPrevista: 0,
     top5: [],
     outrosCat: 0,
@@ -177,8 +183,14 @@ function createEmptyDashboard(monthRef: string): DashboardData {
     parcelas: [],
     saldoMensal: Array.from({ length: 12 }, (_, index) => ({ m: MONTHS[index], v: 0 })),
     saldoDiario: new Array(31).fill(0),
+    saldoDiarioAtual: new Array(31).fill(0),
+    saldoDiarioProjetado: new Array(31).fill(0),
     despesaDiariaSpark: new Array(31).fill(0),
+    despesaDiariaAtualSpark: new Array(31).fill(0),
+    despesaDiariaProjetadaSpark: new Array(31).fill(0),
     cartaoDiariaSpark: new Array(31).fill(0),
+    cartaoDiariaAtualSpark: new Array(31).fill(0),
+    cartaoDiariaProjetadaSpark: new Array(31).fill(0),
     donutSlices: [],
     despesaTotalMes: 0,
     transactions: [],

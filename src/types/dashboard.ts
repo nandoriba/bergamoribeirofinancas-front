@@ -61,6 +61,8 @@ export interface DashboardData {
   today: string;
   saldoAtual: number;
   saldoFuturo: number;
+  saldoAtualTotal: number;
+  saldoProjetadoTotal: number;
   saldoAnt: number;
   saldoMaxMes: number;
   despesaAtual: number;
@@ -69,6 +71,10 @@ export interface DashboardData {
   cartaoAtual: number;
   cartaoFuturo: number;
   cartaoAntMes: number;
+  parcelasConfirmadasQuantidade: number;
+  parcelasConfirmadasValorCents: number;
+  parcelasProjetadasQuantidade: number;
+  parcelasProjetadasValorCents: number;
   receitaPrevista: number;
   top5: CategoryAmount[];
   outrosCat: number;
@@ -76,8 +82,14 @@ export interface DashboardData {
   parcelas: InstallmentItem[];
   saldoMensal: MonthlyBalancePoint[];
   saldoDiario: number[];
+  saldoDiarioAtual: number[];
+  saldoDiarioProjetado: number[];
   despesaDiariaSpark: number[];
+  despesaDiariaAtualSpark: number[];
+  despesaDiariaProjetadaSpark: number[];
   cartaoDiariaSpark: number[];
+  cartaoDiariaAtualSpark: number[];
+  cartaoDiariaProjetadaSpark: number[];
   donutSlices: DonutSlice[];
   despesaTotalMes: number;
   transactions: TransactionItem[];

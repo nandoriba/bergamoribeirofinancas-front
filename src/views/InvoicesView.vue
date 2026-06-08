@@ -38,8 +38,8 @@ const columns = [
   { key: 'account', label: 'Cartão' },
   { key: 'status', label: 'Status' },
   { key: 'transactions', label: 'Compras', align: 'right' as const },
-  { key: 'subtotal', label: 'Subtotal', align: 'right' as const },
-  { key: 'totalCents', label: 'Valor fechado', align: 'right' as const },
+  { key: 'subtotal', label: 'Total das compras', align: 'right' as const },
+  { key: 'totalCents', label: 'Total fechado', align: 'right' as const },
   { key: 'dueDate', label: 'Vencimento' },
 ];
 
@@ -99,6 +99,11 @@ async function save(payload: Parameters<typeof invoicesStore.create>[0]) {
 }
 
 async function markAsPaid(invoice: Invoice) {
+  if (invoice.status === 'open') {
+    toast.error('Feche a fatura antes de marcar como paga');
+    return;
+  }
+
   try {
     await invoicesStore.update(invoice.id, { status: 'paid', accountId: invoice.accountId, referenceMonth: invoice.referenceMonth });
     toast.success('Fatura marcada como paga');
@@ -106,6 +111,21 @@ async function markAsPaid(invoice: Invoice) {
     await dashboardStore.refreshDashboard();
   } catch (err) {
     toast.error(err instanceof Error ? err.message : 'Falha ao pagar fatura');
+  }
+}
+
+async function markAsClosed(invoice: Invoice) {
+  try {
+    await invoicesStore.update(invoice.id, {
+      status: 'closed',
+      accountId: invoice.accountId,
+      referenceMonth: invoice.referenceMonth,
+    });
+    toast.success('Fatura fechada');
+    await invoicesStore.refresh();
+    await dashboardStore.refreshDashboard();
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Falha ao fechar fatura');
   }
 }
 
@@ -219,7 +239,7 @@ function formatDate(value?: string | null) {
           {{ formatCurrency(subtotal(item)) }}
         </template>
         <template #cell-totalCents="{ item }">
-          {{ formatCurrency(item.totalCents) }}
+          {{ item.status === 'closed' || item.status === 'paid' ? formatCurrency(item.totalCents) : '-' }}
         </template>
         <template #cell-dueDate="{ item }">
           {{ formatDate(item.dueDate) }}
@@ -232,7 +252,10 @@ function formatDate(value?: string | null) {
             <button class="quiet-btn" type="button" @click="openEdit(item)">
               Editar
             </button>
-            <button class="quiet-btn" type="button" :disabled="item.status === 'paid'" @click="markAsPaid(item)">
+            <button v-if="item.status === 'open'" class="quiet-btn" type="button" @click="markAsClosed(item)">
+              Fechar
+            </button>
+            <button v-else-if="item.status === 'closed'" class="quiet-btn" type="button" @click="markAsPaid(item)">
               Pagar
             </button>
             <button class="quiet-btn" type="button" @click="remove(item)">
@@ -261,7 +284,7 @@ function formatDate(value?: string | null) {
               <div>
                 <strong>{{ transaction.description }}</strong>
                 <span>
-                  {{ formatDate(transaction.date) }} · {{ transaction.category?.name ?? 'Sem categoria' }} ·
+                  {{ formatDate(transaction.applicationDate) }} · {{ transaction.category?.name ?? 'Sem categoria' }} ·
                   {{ transaction.memberProfile?.displayName ?? 'Perfil' }}
                 </span>
               </div>

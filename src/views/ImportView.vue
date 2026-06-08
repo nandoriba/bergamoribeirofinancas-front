@@ -28,10 +28,33 @@ const creditCardOptions = computed(() => [
     .map((account) => ({ label: account.name, value: account.id })),
 ]);
 
+const isCreditCardPreview = computed(() => data.value.importPreview.some((row) => row.source === 'nubank_credit_card'));
+const confirmDisabled = computed(() => isCreditCardPreview.value && !selectedAccountId.value);
+const cardContextLabel = computed(() =>
+  isCreditCardPreview.value ? 'obrigatório para fatura de cartão' : 'opcional para fatura de cartão',
+);
+const confirmHint = computed(() =>
+  confirmDisabled.value ? 'Selecione o cartão desta fatura para confirmar a importação.' : '',
+);
+
 onMounted(() => {
   void dashboardStore.refreshDashboard();
   void accountsStore.refresh();
 });
+
+async function confirmImport() {
+  if (confirmDisabled.value) {
+    toast.error('Selecione o cartão desta fatura para confirmar a importação');
+    return;
+  }
+
+  try {
+    await dashboardStore.confirmImport(selectedAccountId.value);
+    toast.success('Importação confirmada');
+  } catch {
+    toast.error('Não foi possível confirmar a importação');
+  }
+}
 
 async function discardPreview() {
   if (importLoading.value || data.value.importPreview.length === 0) return;
@@ -65,7 +88,7 @@ async function discardPreview() {
       <div class="section-head">
         <div>
           <h2>Contexto da importação</h2>
-          <span class="meta">opcional para fatura de cartão</span>
+          <span class="meta">{{ cardContextLabel }}</span>
         </div>
       </div>
       <div class="filter-strip">
@@ -78,7 +101,9 @@ async function discardPreview() {
     <ImportReview
       :rows="data.importPreview"
       :loading="importLoading"
-      @confirm="dashboardStore.confirmImport(selectedAccountId)"
+      :confirm-disabled="confirmDisabled"
+      :confirm-hint="confirmHint"
+      @confirm="confirmImport"
       @discard="discardPreview"
       @select-file="dashboardStore.previewImport"
     />

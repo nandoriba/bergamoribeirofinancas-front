@@ -50,6 +50,7 @@ const form = reactive({
   firstInstallmentNumber: props.initial?.firstInstallmentNumber ?? 1,
   monthlyAmountCents: props.initial?.monthlyAmountCents ?? 0,
   startsAt: toDateValue(props.initial?.startsAt) ?? toToday(),
+  firstApplicationDate: firstApplicationDate(props.initial) ?? toToday(),
   firstReferenceMonth: toMonthValue(props.initial?.firstReferenceMonth) ?? toCurrentMonth(),
   accountId: '',
   categoryId: '',
@@ -72,7 +73,8 @@ function submit() {
     firstInstallmentNumber: Number(form.firstInstallmentNumber),
     monthlyAmountCents: Math.abs(form.monthlyAmountCents),
     totalAmountCents: totalAmountCents.value,
-    startsAt: form.startsAt,
+    startsAt: form.startsAt || toToday(),
+    firstApplicationDate: form.firstApplicationDate,
     firstReferenceMonth: `${form.firstReferenceMonth}-01`,
     accountId: form.accountId || undefined,
     categoryId: form.categoryId || undefined,
@@ -92,6 +94,13 @@ function toCurrentMonth() {
 function toDateValue(value?: string | null) {
   if (!value) return null;
   return value.slice(0, 10);
+}
+
+function firstApplicationDate(plan?: InstallmentPlan | null) {
+  const firstTransaction = plan?.transactions?.find(
+    (transaction) => transaction.installmentNumber === plan.firstInstallmentNumber,
+  );
+  return toDateValue(firstTransaction?.applicationDate) ?? toDateValue(plan?.startsAt);
 }
 
 function toMonthValue(value?: string | null) {
@@ -138,8 +147,8 @@ function formatMonth(value: string) {
       <DateInput v-model="form.firstReferenceMonth" type="month" />
     </FormField>
 
-    <FormField label="Data de escrituração" required>
-      <DateInput v-model="form.startsAt" />
+    <FormField label="Data da parcela atual" required>
+      <DateInput v-model="form.firstApplicationDate" />
     </FormField>
 
     <FormField label="Conta">

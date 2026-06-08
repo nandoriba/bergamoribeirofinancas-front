@@ -2,7 +2,8 @@ import { createCrudService } from './_base';
 import type { Transaction, TransactionStatus, TransactionType } from '@/types/api';
 
 export interface TransactionPayload {
-  date: string;
+  date?: string;
+  applicationDate: string;
   referenceMonth?: string;
   description: string;
   amountCents: number;

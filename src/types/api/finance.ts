@@ -61,6 +61,7 @@ export interface Invoice {
 export interface Transaction {
   id: string;
   date: string;
+  applicationDate: string;
   referenceMonth: string;
   description: string;
   amountCents: number;
@@ -121,6 +122,17 @@ export interface InstallmentPlan {
   transactions?: Transaction[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface InstallmentPlanWithComputed extends InstallmentPlan {
+  remainingInstallments: number;
+  amountToPayCents: number;
+}
+
+export interface InstallmentSummary {
+  totalPurchaseCents: number;
+  totalInstallments: number;
+  totalAmountToPayCents: number;
 }
 
 export interface MonthlyReport {

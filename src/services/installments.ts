@@ -1,5 +1,5 @@
-import { createCrudService } from './_base';
-import type { InstallmentPlan } from '@/types/api';
+import { apiFetch } from '@/lib/api';
+import type { InstallmentPlanWithComputed, InstallmentSummary } from '@/types/api';
 
 export interface InstallmentPayload {
   description: string;
@@ -9,6 +9,7 @@ export interface InstallmentPayload {
   monthlyAmountCents: number;
   totalAmountCents: number;
   startsAt: string;
+  firstApplicationDate?: string;
   firstReferenceMonth: string;
   accountId?: string;
   categoryId?: string;
@@ -24,4 +25,22 @@ export interface InstallmentLinkCandidate {
   amountCents: number;
 }
 
-export const installmentsService = createCrudService<InstallmentPlan, InstallmentPayload>('/installments');
+export interface InstallmentListResponse {
+  items: InstallmentPlanWithComputed[];
+  summary: InstallmentSummary;
+}
+
+export const installmentsService = {
+  list: () => apiFetch<InstallmentListResponse>('/installments'),
+  create: (payload: InstallmentPayload) =>
+    apiFetch<InstallmentPlanWithComputed>('/installments', {
+      method: 'POST',
+      body: payload as unknown as Record<string, unknown>,
+    }),
+  update: (id: string, payload: Partial<InstallmentPayload>) =>
+    apiFetch<InstallmentPlanWithComputed>(`/installments/${id}`, {
+      method: 'PATCH',
+      body: payload as unknown as Record<string, unknown>,
+    }),
+  remove: (id: string) => apiFetch<void>(`/installments/${id}`, { method: 'DELETE' }),
+};

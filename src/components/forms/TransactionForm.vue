@@ -62,8 +62,9 @@ const invoiceOptions = computed(() => [
 ]);
 
 const form = reactive({
-  date: toDateValue(props.initial?.date) ?? toToday(),
-  referenceMonth: toMonthValue(props.initial?.referenceMonth) ?? toMonthValue(props.initial?.date) ?? toCurrentMonth(),
+  applicationDate: toDateValue(props.initial?.applicationDate) ?? toToday(),
+  referenceMonth:
+    toMonthValue(props.initial?.referenceMonth) ?? toMonthValue(props.initial?.applicationDate) ?? toCurrentMonth(),
   description: props.initial?.description ?? '',
   amountCents: Math.abs(props.initial?.amountCents ?? 0),
   type: (props.initial?.type ?? 'expense') as TransactionType,
@@ -74,13 +75,16 @@ const form = reactive({
   notes: props.initial?.notes ?? '',
 });
 
+const isFutureApplicationDate = computed(() => form.applicationDate > toToday());
+
 watch(
-  () => form.date,
-  (date) => {
-    if (!props.initial && date) {
-      form.referenceMonth = date.slice(0, 7);
+  () => form.applicationDate,
+  () => {
+    if (!isFutureApplicationDate.value) {
+      form.status = 'confirmed';
     }
   },
+  { immediate: true },
 );
 
 watch(
@@ -94,12 +98,12 @@ watch(
 
 function submit() {
   emit('submit', {
-    date: form.date,
+    applicationDate: form.applicationDate,
     referenceMonth: `${form.referenceMonth}-01`,
     description: form.description.trim(),
     amountCents: Math.abs(form.amountCents),
     type: form.type,
-    status: form.status,
+    status: isFutureApplicationDate.value ? form.status : 'confirmed',
     recurrenceType: 'none',
     accountId: form.accountId || undefined,
     categoryId: form.categoryId || undefined,
@@ -135,12 +139,12 @@ function formatMonth(value: string) {
 
 <template>
   <form class="form-grid" @submit.prevent="submit">
-    <FormField label="Data de escrituração" required>
-      <DateInput v-model="form.date" />
-    </FormField>
-
     <FormField label="Mês de referência" required>
       <DateInput v-model="form.referenceMonth" type="month" />
+    </FormField>
+
+    <FormField label="Data de aplicação" required>
+      <DateInput v-model="form.applicationDate" />
     </FormField>
 
     <FormField label="Descrição" class="full" required>
@@ -155,7 +159,7 @@ function formatMonth(value: string) {
       <Select v-model="form.type" :options="typeOptions" />
     </FormField>
 
-    <FormField label="Status" required>
+    <FormField v-if="isFutureApplicationDate" label="Status" required>
       <Select v-model="form.status" :options="statusOptions" />
     </FormField>
 

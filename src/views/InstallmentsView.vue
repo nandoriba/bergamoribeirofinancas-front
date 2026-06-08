@@ -17,7 +17,7 @@ import { useCategoriesStore } from '@/stores/categories';
 import { useDashboardStore } from '@/stores/dashboard';
 import { useInstallmentsStore } from '@/stores/installments';
 import { useInvoicesStore } from '@/stores/invoices';
-import type { InstallmentPlan } from '@/types/api';
+import type { InstallmentPlanWithComputed } from '@/types/api';
 import { formatCurrency } from '@/utils/format';
 
 const accountsStore = useAccountsStore();
@@ -29,8 +29,8 @@ const invoicesStore = useInvoicesStore();
 const confirmDialog = useConfirm();
 const toast = useToast();
 
-const { error, isLoading, items } = storeToRefs(installmentsStore);
-const editing = ref<InstallmentPlan | null>(null);
+const { error, isLoading, items, summary } = storeToRefs(installmentsStore);
+const editing = ref<InstallmentPlanWithComputed | null>(null);
 const expandedId = ref<string | null>(null);
 const modalOpen = ref(false);
 
@@ -41,6 +41,7 @@ const columns = [
   { key: 'totalInstallments', label: 'Total' },
   { key: 'monthlyAmountCents', label: 'Parcela', align: 'right' as const },
   { key: 'totalAmountCents', label: 'Compra', align: 'right' as const },
+  { key: 'amountToPayCents', label: 'A pagar', align: 'right' as const },
 ];
 
 const ownAccounts = computed(() =>
@@ -65,7 +66,7 @@ function openCreate() {
   modalOpen.value = true;
 }
 
-function openEdit(plan: InstallmentPlan) {
+function openEdit(plan: InstallmentPlanWithComputed) {
   editing.value = plan;
   modalOpen.value = true;
 }
@@ -103,7 +104,7 @@ async function createWithCandidateConfirmation(payload: Parameters<typeof instal
   }
 }
 
-async function remove(plan: InstallmentPlan) {
+async function remove(plan: InstallmentPlanWithComputed) {
   const confirmed = await confirmDialog.confirm({
     title: 'Excluir parcelamento',
     message: `Excluir "${plan.description}"? As parcelas geradas permanecem como lançamentos simples.`,
@@ -120,7 +121,7 @@ async function remove(plan: InstallmentPlan) {
   }
 }
 
-function toggle(plan: InstallmentPlan) {
+function toggle(plan: InstallmentPlanWithComputed) {
   expandedId.value = expandedId.value === plan.id ? null : plan.id;
 }
 
@@ -138,6 +139,11 @@ function buildCandidateMessage(candidates: InstallmentLinkCandidate[]) {
 function formatMonth(value: string) {
   const [year, month] = value.slice(0, 7).split('-');
   return `${month}/${year}`;
+}
+
+function formatDate(value: string) {
+  const [year, month, day] = value.slice(0, 10).split('-');
+  return `${day}/${month}/${year}`;
 }
 </script>
 
@@ -181,6 +187,10 @@ function formatMonth(value: string) {
         <template #cell-totalAmountCents="{ item }">
           {{ formatCurrency(item.totalAmountCents) }}
         </template>
+        <template #cell-amountToPayCents="{ item }">
+          <span class="strong">{{ formatCurrency(item.amountToPayCents) }}</span>
+          <span class="muted"> · {{ item.remainingInstallments }} restantes</span>
+        </template>
         <template #actions="{ item }">
           <div class="row-actions">
             <button class="quiet-btn" type="button" @click="toggle(item)">
@@ -195,6 +205,21 @@ function formatMonth(value: string) {
           </div>
         </template>
       </DataTable>
+
+      <div v-if="items.length" class="installment-totals-row" aria-label="Totais de parcelamentos">
+        <div>
+          <span>Total compra</span>
+          <strong>{{ formatCurrency(summary.totalPurchaseCents) }}</strong>
+        </div>
+        <div>
+          <span>Total parcelas</span>
+          <strong>{{ summary.totalInstallments }} parcelas</strong>
+        </div>
+        <div>
+          <span>Total a pagar</span>
+          <strong>{{ formatCurrency(summary.totalAmountToPayCents) }}</strong>
+        </div>
+      </div>
 
       <div v-if="expandedId" class="invoice-detail">
         <template v-for="plan in items" :key="plan.id">
@@ -211,7 +236,8 @@ function formatMonth(value: string) {
               <div>
                 <strong>{{ transaction.description }}</strong>
                 <span>
-                  {{ formatMonth(transaction.referenceMonth) }} · {{ transaction.invoice?.account?.name ?? transaction.account?.name ?? 'Sem conta' }}
+                  {{ formatDate(transaction.applicationDate) }} · {{ formatMonth(transaction.referenceMonth) }} ·
+                  {{ transaction.invoice?.account?.name ?? transaction.account?.name ?? 'Sem conta' }}
                 </span>
               </div>
               <div class="purchase-meta">

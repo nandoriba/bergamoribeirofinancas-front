@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
 
-import CurrencyInput from '@/components/common/CurrencyInput.vue';
 import DateInput from '@/components/common/DateInput.vue';
 import FormField from '@/components/common/FormField.vue';
 import Select from '@/components/common/Select.vue';
@@ -31,24 +30,33 @@ const statusOptions = INVOICE_STATUSES.map((status) => ({
   value: status,
 }));
 
+const isEdit = computed(() => Boolean(props.initial));
+
 const form = reactive({
   accountId: props.initial?.accountId ?? accountOptions.value[0]?.value ?? '',
   referenceMonth: toMonthValue(props.initial?.referenceMonth) ?? toCurrentMonth(),
   dueDate: toDateValue(props.initial?.dueDate) ?? '',
   closingDate: toDateValue(props.initial?.closingDate) ?? '',
-  totalCents: props.initial?.totalCents ?? 0,
   status: (props.initial?.status ?? 'open') as InvoiceStatus,
 });
 
+const selectedAccount = computed(() => props.accounts.find((account) => account.id === form.accountId));
+const closingPreview = computed(() => formatDerivedDate(form.referenceMonth, selectedAccount.value?.closingDay));
+const duePreview = computed(() => formatDerivedDate(form.referenceMonth, selectedAccount.value?.dueDay));
+
 function submit() {
-  emit('submit', {
+  const payload: InvoicePayload = {
     accountId: form.accountId,
     referenceMonth: `${form.referenceMonth}-01`,
-    dueDate: form.dueDate || undefined,
-    closingDate: form.closingDate || undefined,
-    totalCents: form.totalCents,
-    status: form.status,
-  });
+  };
+
+  if (isEdit.value) {
+    payload.dueDate = form.dueDate || undefined;
+    payload.closingDate = form.closingDate || undefined;
+    payload.status = form.status;
+  }
+
+  emit('submit', payload);
 }
 
 function toCurrentMonth() {
@@ -65,6 +73,14 @@ function toDateValue(value?: string | null) {
   if (!value) return null;
   return value.slice(0, 10);
 }
+
+function formatDerivedDate(monthValue: string, day?: number | null) {
+  if (!day) return 'Não definido';
+  const [year, month] = monthValue.split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const safeDay = Math.min(Math.max(day, 1), daysInMonth);
+  return `${String(safeDay).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+}
 </script>
 
 <template>
@@ -77,20 +93,27 @@ function toDateValue(value?: string | null) {
       <DateInput v-model="form.referenceMonth" type="month" />
     </FormField>
 
-    <FormField label="Status">
+    <div v-if="!isEdit" class="invoice-preview full">
+      <div>
+        <span>Fechamento previsto</span>
+        <strong>{{ closingPreview }}</strong>
+      </div>
+      <div>
+        <span>Vencimento previsto</span>
+        <strong>{{ duePreview }}</strong>
+      </div>
+    </div>
+
+    <FormField v-if="isEdit" label="Status">
       <Select v-model="form.status" :options="statusOptions" />
     </FormField>
 
-    <FormField label="Fechamento">
+    <FormField v-if="isEdit" label="Fechamento">
       <DateInput v-model="form.closingDate" />
     </FormField>
 
-    <FormField label="Vencimento">
+    <FormField v-if="isEdit" label="Vencimento">
       <DateInput v-model="form.dueDate" />
-    </FormField>
-
-    <FormField label="Valor fechado" class="full">
-      <CurrencyInput v-model="form.totalCents" />
     </FormField>
 
     <div class="form-actions full">

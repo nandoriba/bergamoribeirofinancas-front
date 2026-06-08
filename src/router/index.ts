@@ -7,7 +7,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'dashboard',
     component: () => import('@/views/DashboardView.vue'),
-    meta: { title: 'Balanço' },
+    meta: { title: 'Balanço', monthScoped: true },
   },
   {
     path: '/login',
@@ -19,7 +19,7 @@ const routes: RouteRecordRaw[] = [
     path: '/lancamentos',
     name: 'transactions',
     component: () => import('@/views/TransactionsView.vue'),
-    meta: { title: 'Lançamentos' },
+    meta: { title: 'Lançamentos', monthScoped: true },
   },
   {
     path: '/importar',
@@ -37,7 +37,7 @@ const routes: RouteRecordRaw[] = [
     path: '/faturas',
     name: 'invoices',
     component: () => import('@/views/InvoicesView.vue'),
-    meta: { title: 'Faturas' },
+    meta: { title: 'Faturas', monthScoped: true },
   },
   {
     path: '/recorrentes',
