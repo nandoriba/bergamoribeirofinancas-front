@@ -64,6 +64,8 @@ export interface ImportPreviewRow {
   status: 'new' | 'duplicate' | 'possible_duplicate' | 'review';
   reviewReason?: string | null;
   duplicateCandidates: ImportDuplicateCandidate[];
+  invoiceAdjustmentCandidate?: boolean;
+  invoiceAdjustmentDefault?: boolean;
 }
 
 export interface ImportDuplicateCandidate {

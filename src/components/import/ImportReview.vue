@@ -12,6 +12,7 @@ const props = defineProps<{
   confirmDisabled?: boolean;
   confirmHint?: string;
   possibleDuplicateDecisions: Record<string, PossibleDuplicateDecision>;
+  invoiceAdjustmentDecisions: Record<string, boolean>;
 }>();
 
 const emit = defineEmits<{
@@ -19,6 +20,7 @@ const emit = defineEmits<{
   confirm: [];
   discard: [];
   decidePossibleDuplicate: [rowId: string, decision: PossibleDuplicateDecision];
+  decideInvoiceAdjustment: [rowId: string, selected: boolean];
 }>();
 
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -89,6 +91,14 @@ function handleDecisionChange(rowId: string, event: Event) {
   if (value === 'not_duplicate' || value === 'duplicate') {
     decide(rowId, value);
   }
+}
+
+function isInvoiceAdjustmentSelected(row: ImportPreviewRow) {
+  return props.invoiceAdjustmentDecisions[row.id] ?? row.invoiceAdjustmentDefault ?? false;
+}
+
+function handleInvoiceAdjustmentChange(rowId: string, event: Event) {
+  emit('decideInvoiceAdjustment', rowId, (event.target as HTMLInputElement).checked);
 }
 </script>
 
@@ -173,23 +183,37 @@ function handleDecisionChange(rowId: string, event: Event) {
                   </div>
                 </td>
                 <td>
-                  <div v-if="isDecisionableDuplicate(row)" class="duplicate-decision-group">
-                    <select
-                      class="form-control duplicate-decision-select"
-                      :value="decisionValue(row)"
-                      :aria-label="`Decisão da duplicidade de ${row.description}`"
-                      @change="handleDecisionChange(row.id, $event)"
-                    >
-                      <option value="" disabled>
-                        Escolha
-                      </option>
-                      <option value="not_duplicate">
-                        Não é duplicidade
-                      </option>
-                      <option value="duplicate">
-                        Confirmar duplicidade
-                      </option>
-                    </select>
+                  <div
+                    v-if="isDecisionableDuplicate(row) || row.invoiceAdjustmentCandidate"
+                    class="import-confirmation-stack"
+                  >
+                    <div v-if="isDecisionableDuplicate(row)" class="duplicate-decision-group">
+                      <select
+                        class="form-control duplicate-decision-select"
+                        :value="decisionValue(row)"
+                        :aria-label="`Decisão da duplicidade de ${row.description}`"
+                        @change="handleDecisionChange(row.id, $event)"
+                      >
+                        <option value="" disabled>
+                          Escolha
+                        </option>
+                        <option value="not_duplicate">
+                          Não é duplicidade
+                        </option>
+                        <option value="duplicate">
+                          Confirmar duplicidade
+                        </option>
+                      </select>
+                    </div>
+                    <label v-if="row.invoiceAdjustmentCandidate" class="invoice-adjustment-check">
+                      <input
+                        type="checkbox"
+                        :checked="isInvoiceAdjustmentSelected(row)"
+                        :aria-label="`Compor somente a fatura para ${row.description}`"
+                        @change="handleInvoiceAdjustmentChange(row.id, $event)"
+                      >
+                      <span>Somente fatura</span>
+                    </label>
                   </div>
                   <span v-else class="muted-cell">-</span>
                 </td>

@@ -164,7 +164,7 @@ function formatMonth(value: string) {
     </FormField>
 
     <FormField label="Descrição" class="full" required>
-      <input v-model="form.description" class="form-control" required maxlength="140" />
+      <input v-model="form.description" class="form-control" required maxlength="200" />
     </FormField>
 
     <FormField label="Valor" required>

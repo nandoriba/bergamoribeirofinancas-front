@@ -160,7 +160,7 @@ function canMutate(invoice: Invoice) {
 }
 
 function subtotal(invoice: Invoice) {
-  return (invoice.transactions ?? []).reduce((sum, transaction) => sum + Math.abs(transaction.amountCents), 0);
+  return (invoice.transactions ?? []).reduce((sum, transaction) => sum + invoiceTransactionAmount(transaction), 0);
 }
 
 function isProjected(invoice: Invoice) {
@@ -175,6 +175,20 @@ function isProjected(invoice: Invoice) {
 
 function timeline(transaction: Transaction) {
   return transaction.installmentPlan?.transactions ?? [];
+}
+
+function invoiceTransactionAmount(transaction: Transaction) {
+  return transaction.isInvoiceAdjustment
+    ? (transaction.invoiceAmountCents ?? 0)
+    : Math.abs(transaction.amountCents);
+}
+
+function formatInvoiceTransactionAmount(transaction: Transaction) {
+  const value = invoiceTransactionAmount(transaction);
+  if (transaction.isInvoiceAdjustment) {
+    return `${value < 0 ? '-' : '+'}${formatCurrency(Math.abs(value))}`;
+  }
+  return formatCurrency(value);
 }
 
 function monthValue(value: string) {
@@ -303,7 +317,13 @@ function formatDate(value?: string | null) {
                 <span v-if="transaction.installmentNumber" class="status-badge pending">
                   Parcela {{ transaction.installmentNumber }}/{{ transaction.installmentPlan?.totalInstallments ?? '?' }}
                 </span>
-                <span class="num expense">-{{ formatCurrency(Math.abs(transaction.amountCents)) }}</span>
+                <span v-if="transaction.isInvoiceAdjustment" class="status-badge review">Somente fatura</span>
+                <span
+                  class="num"
+                  :class="invoiceTransactionAmount(transaction) < 0 ? 'income' : 'expense'"
+                >
+                  {{ formatInvoiceTransactionAmount(transaction) }}
+                </span>
               </div>
 
               <div v-if="timeline(transaction).length > 1" class="timeline">

@@ -85,7 +85,7 @@ function toDateValue(value?: string | null) {
 <template>
   <form class="form-grid" @submit.prevent="submit">
     <FormField label="Descrição" class="full" required>
-      <input v-model="form.description" class="form-control" required maxlength="140" />
+      <input v-model="form.description" class="form-control" required maxlength="200" />
     </FormField>
 
     <FormField label="Valor" required>

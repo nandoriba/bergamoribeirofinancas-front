@@ -1,8 +1,16 @@
 <script setup lang="ts" generic="TItem extends { id?: unknown }">
-defineProps<{
-  columns: Array<{ key: keyof TItem | string; label: string; align?: 'left' | 'right'; class?: string }>;
+import IconGlyph from '@/components/common/IconGlyph.vue';
+
+const props = defineProps<{
+  columns: Array<{ key: keyof TItem | string; label: string; align?: 'left' | 'right'; class?: string; sortable?: boolean }>;
   items: TItem[];
   emptyLabel?: string;
+  sortKey?: keyof TItem | string | null;
+  sortDirection?: 'asc' | 'desc';
+}>();
+
+const emit = defineEmits<{
+  sortChange: [key: string];
 }>();
 
 function rowKey(item: TItem) {
@@ -11,6 +19,17 @@ function rowKey(item: TItem) {
 
 function cellValue(item: TItem, key: keyof TItem | string) {
   return (item as Record<string, unknown>)[String(key)];
+}
+
+function isSorted(columnKey: keyof TItem | string) {
+  return props.sortKey !== null && props.sortKey !== undefined && String(props.sortKey) === String(columnKey);
+}
+
+function sortLabel(column: { key: keyof TItem | string; label: string }) {
+  if (!isSorted(column.key)) return `Ordenar por ${column.label}`;
+  return props.sortDirection === 'asc'
+    ? `Ordenado por ${column.label} crescente. Inverter ordem`
+    : `Ordenado por ${column.label} decrescente. Inverter ordem`;
 }
 </script>
 
@@ -23,8 +42,22 @@ function cellValue(item: TItem, key: keyof TItem | string) {
             v-for="column in columns"
             :key="String(column.key)"
             :class="[{ 'num-col': column.align === 'right' }, column.class]"
+            :aria-sort="column.sortable && isSorted(column.key) ? (sortDirection === 'asc' ? 'ascending' : 'descending') : undefined"
           >
-            {{ column.label }}
+            <button
+              v-if="column.sortable"
+              class="table-sort-btn"
+              type="button"
+              :aria-label="sortLabel(column)"
+              @click="emit('sortChange', String(column.key))"
+            >
+              <span>{{ column.label }}</span>
+              <IconGlyph
+                :name="isSorted(column.key) && sortDirection === 'asc' ? 'chevUp' : 'chevDown'"
+                :size="13"
+              />
+            </button>
+            <span v-else>{{ column.label }}</span>
           </th>
           <th v-if="$slots.actions" class="actions-col">
             Ações

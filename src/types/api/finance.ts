@@ -72,6 +72,8 @@ export interface Transaction {
   externalId?: string | null;
   notes?: string | null;
   isInvoicePayment: boolean;
+  isInvoiceAdjustment?: boolean;
+  invoiceAmountCents?: number | null;
   memberProfileId: string;
   accountId?: string | null;
   categoryId?: string | null;

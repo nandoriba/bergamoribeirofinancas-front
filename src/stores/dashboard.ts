@@ -83,6 +83,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     accountId?: string,
     acceptedPossibleDuplicateRowIds: string[] = [],
     confirmedDuplicateRowIds: string[] = [],
+    invoiceAdjustmentRowIds: string[] = [],
   ) {
     if (!importBatchId.value) return;
     importLoading.value = true;
@@ -95,6 +96,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
           accountId: accountId || undefined,
           acceptedPossibleDuplicateRowIds,
           confirmedDuplicateRowIds,
+          invoiceAdjustmentRowIds,
         },
       });
       importBatchId.value = null;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch, type Ref } from 'vue';
 
 import CurrencyInput from '@/components/common/CurrencyInput.vue';
 import DataTable from '@/components/common/DataTable.vue';
@@ -9,6 +9,7 @@ import FormField from '@/components/common/FormField.vue';
 import FutureBadge from '@/components/common/FutureBadge.vue';
 import IconGlyph from '@/components/common/IconGlyph.vue';
 import Modal from '@/components/common/Modal.vue';
+import MultiSelect from '@/components/common/MultiSelect.vue';
 import Select from '@/components/common/Select.vue';
 import TransactionForm from '@/components/forms/TransactionForm.vue';
 import AppShell from '@/components/layout/AppShell.vue';
@@ -24,8 +25,9 @@ import { useInvoicesStore } from '@/stores/invoices';
 import { useProfilesStore } from '@/stores/profiles';
 import { useTransactionsStore } from '@/stores/transactions';
 import {
+  ACCOUNT_TYPE_LABELS,
+  ACCOUNT_TYPES,
   TRANSACTION_STATUS_LABELS,
-  TRANSACTION_TYPE_LABELS,
   type Transaction,
 } from '@/types/api';
 import { formatCurrency } from '@/utils/format';
@@ -41,7 +43,8 @@ const confirmDialog = useConfirm();
 const toast = useToast();
 
 const { error, isLoading, items } = storeToRefs(transactionsStore);
-const categoryFilter = ref('');
+const selectedCategoryKeys = ref<string[]>([]);
+const selectedAccountTypeKeys = ref<string[]>([]);
 const descriptionFilter = ref('');
 const applicationDateFilter = ref('');
 const amountFilterCents = ref(0);
@@ -51,6 +54,8 @@ const editing = ref<Transaction | null>(null);
 const modalOpen = ref(false);
 const duplicateWarning = ref<ManualDuplicateWarning | null>(null);
 const pendingDuplicatePayload = ref<TransactionPayload | null>(null);
+const sortKey = ref<TransactionSortKey>('applicationDate');
+const sortDirection = ref<SortDirection>('desc');
 
 interface ManualDuplicateWarning {
   title: string;
@@ -59,9 +64,11 @@ interface ManualDuplicateWarning {
 }
 
 type SearchMode = 'description' | 'amount' | 'applicationDate';
+type TransactionSortKey = 'applicationDate' | 'amountCents';
+type SortDirection = 'asc' | 'desc';
 
 const columns = [
-  { key: 'applicationDate', label: 'Aplicação' },
+  { key: 'applicationDate', label: 'Aplicação', sortable: true },
   { key: 'referenceMonth', label: 'Referência' },
   { key: 'date', label: 'Escrituração' },
   { key: 'description', label: 'Descrição' },
@@ -69,7 +76,7 @@ const columns = [
   { key: 'category', label: 'Categoria' },
   { key: 'memberProfile', label: 'Perfil' },
   { key: 'status', label: 'Status' },
-  { key: 'amountCents', label: 'Valor', align: 'right' as const },
+  { key: 'amountCents', label: 'Valor', align: 'right' as const, sortable: true },
 ];
 
 const searchModeOptions: Array<{ label: string; value: SearchMode }> = [
@@ -77,6 +84,10 @@ const searchModeOptions: Array<{ label: string; value: SearchMode }> = [
   { label: 'Valor', value: 'amount' },
   { label: 'Aplicação', value: 'applicationDate' },
 ];
+
+const SPECIAL_OPERATIONAL_CATEGORY_KEYS = new Set(['system:invoice_adjustment', 'system:invoice_payment']);
+const UNCATEGORIZED_CATEGORY_KEY = 'system:uncategorized';
+const NO_ACCOUNT_TYPE_KEY = 'system:no_account';
 
 const ownAccounts = computed(() =>
   accountsStore.items.filter((account) => account.memberProfileId === authStore.user?.profileId),
@@ -92,19 +103,16 @@ const profileOptions = computed(() => [
 ]);
 
 const categoryOptions = computed(() => [
-  { label: 'Todas as categorias', value: '' },
   ...operationalCategoryOptions.value,
-  ...categoriesStore.items
-    .filter((category) => category.name !== 'Cartão')
-    .map((category) => ({ label: category.name, value: `category:${category.id}` })),
+  ...categoriesStore.items.map((category) => ({ label: category.name, value: `category:${category.id}` })),
 ]);
 
 const operationalCategoryOptions = computed(() => {
   const options = new Map<string, string>();
   for (const transaction of items.value) {
-    const category = transaction.operationalCategory;
-    if (category?.key.startsWith('system:')) {
-      options.set(category.key, category.name);
+    const key = categoryKey(transaction);
+    if (key.startsWith('system:')) {
+      options.set(key, categoryLabel(transaction));
     }
   }
   return [...options.entries()]
@@ -112,7 +120,17 @@ const operationalCategoryOptions = computed(() => {
     .map(([value, label]) => ({ label, value }));
 });
 
+const accountTypeOptions = computed(() => {
+  const hasNoAccount = items.value.some((transaction) => accountTypeKey(transaction) === NO_ACCOUNT_TYPE_KEY);
+  return [
+    ...ACCOUNT_TYPES.map((value) => ({ label: ACCOUNT_TYPE_LABELS[value], value: `account:${value}` })),
+    ...(hasNoAccount ? [{ label: 'Sem conta', value: NO_ACCOUNT_TYPE_KEY }] : []),
+  ];
+});
+
 const normalizedDescriptionFilter = computed(() => normalizeSearch(descriptionFilter.value));
+const categoryOptionValues = computed(() => categoryOptions.value.map((option) => option.value));
+const accountTypeOptionValues = computed(() => accountTypeOptions.value.map((option) => option.value));
 const hasActiveSearch = computed(() => {
   if (searchMode.value === 'amount') return amountFilterCents.value !== 0;
   if (searchMode.value === 'applicationDate') return Boolean(applicationDateFilter.value);
@@ -122,10 +140,12 @@ const hasActiveSearch = computed(() => {
 const filteredItems = computed(() =>
   items.value.filter((transaction) => {
     const profileMatch = !profileFilter.value || transaction.memberProfileId === profileFilter.value;
-    const categoryMatch = !categoryFilter.value || transaction.operationalCategory?.key === categoryFilter.value;
-    return profileMatch && categoryMatch && matchesActiveSearch(transaction);
+    const categoryMatch = selectedCategoryKeys.value.includes(categoryKey(transaction));
+    const accountTypeMatch = selectedAccountTypeKeys.value.includes(accountTypeKey(transaction));
+    return profileMatch && categoryMatch && accountTypeMatch && matchesActiveSearch(transaction);
   }),
 );
+const sortedItems = computed(() => [...filteredItems.value].sort(compareTransactions));
 
 const isFutureMonth = computed(() => dashboardStore.isFutureMonth);
 
@@ -144,6 +164,22 @@ watch(
   () => {
     void refreshTransactions();
   },
+);
+
+watch(
+  categoryOptionValues,
+  (nextValues, previousValues = []) => {
+    syncSelectedOptionValues(selectedCategoryKeys, nextValues, previousValues);
+  },
+  { immediate: true },
+);
+
+watch(
+  accountTypeOptionValues,
+  (nextValues, previousValues = []) => {
+    syncSelectedOptionValues(selectedAccountTypeKeys, nextValues, previousValues);
+  },
+  { immediate: true },
 );
 
 async function refreshTransactions() {
@@ -212,6 +248,18 @@ function clearActiveSearch() {
   applicationDateFilter.value = '';
 }
 
+function setSort(key: string) {
+  if (!isTransactionSortKey(key)) return;
+
+  if (sortKey.value === key) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    return;
+  }
+
+  sortKey.value = key;
+  sortDirection.value = 'desc';
+}
+
 async function remove(transaction: Transaction) {
   if (!canMutate(transaction)) return;
   const confirmed = await confirmDialog.confirm({
@@ -262,6 +310,61 @@ function matchesActiveSearch(transaction: Transaction) {
   }
 
   return !normalizedDescriptionFilter.value || normalizeSearch(transaction.description).includes(normalizedDescriptionFilter.value);
+}
+
+function categoryKey(transaction: Transaction) {
+  if (transaction.operationalCategory?.key && SPECIAL_OPERATIONAL_CATEGORY_KEYS.has(transaction.operationalCategory.key)) {
+    return transaction.operationalCategory.key;
+  }
+  if (transaction.categoryId) return `category:${transaction.categoryId}`;
+  return UNCATEGORIZED_CATEGORY_KEY;
+}
+
+function categoryLabel(transaction: Transaction) {
+  if (transaction.operationalCategory?.key && SPECIAL_OPERATIONAL_CATEGORY_KEYS.has(transaction.operationalCategory.key)) {
+    return transaction.operationalCategory.name;
+  }
+  return transaction.category?.name ?? 'Sem categoria';
+}
+
+function accountTypeKey(transaction: Transaction) {
+  return transaction.account?.type ? `account:${transaction.account.type}` : NO_ACCOUNT_TYPE_KEY;
+}
+
+function syncSelectedOptionValues(selection: Ref<string[]>, nextValues: string[], previousValues: string[] = []) {
+  const nextSet = new Set(nextValues);
+  const previousSelection = selection.value;
+  const hadNoOptions = previousValues.length === 0 && previousSelection.length === 0;
+  const hadAllPreviousSelected =
+    previousValues.length > 0 && previousValues.every((value) => previousSelection.includes(value));
+
+  if (hadNoOptions || hadAllPreviousSelected) {
+    selection.value = nextValues;
+    return;
+  }
+
+  selection.value = previousSelection.filter((value) => nextSet.has(value));
+}
+
+function compareTransactions(a: Transaction, b: Transaction) {
+  const direction = sortDirection.value === 'asc' ? 1 : -1;
+  const valueA = sortValue(a, sortKey.value);
+  const valueB = sortValue(b, sortKey.value);
+  const comparison = valueA === valueB ? fallbackSortValue(a) - fallbackSortValue(b) : valueA - valueB;
+  return comparison * direction;
+}
+
+function sortValue(transaction: Transaction, key: TransactionSortKey) {
+  if (key === 'amountCents') return Math.abs(transaction.amountCents);
+  return Date.parse(transaction.applicationDate);
+}
+
+function fallbackSortValue(transaction: Transaction) {
+  return Date.parse(transaction.applicationDate);
+}
+
+function isTransactionSortKey(key: string): key is TransactionSortKey {
+  return key === 'applicationDate' || key === 'amountCents';
 }
 
 function isDuplicateError(error: unknown): error is ApiError {
@@ -321,7 +424,22 @@ function duplicateMessage(error: ApiError) {
           <Select v-model="profileFilter" :options="profileOptions" />
         </FormField>
         <FormField label="Categoria">
-          <Select v-model="categoryFilter" :options="categoryOptions" />
+          <MultiSelect
+            v-model="selectedCategoryKeys"
+            :options="categoryOptions"
+            all-label="Todas as categorias"
+            empty-label="Nenhuma categoria"
+            search-placeholder="Filtrar categorias"
+          />
+        </FormField>
+        <FormField label="Tipo de conta">
+          <MultiSelect
+            v-model="selectedAccountTypeKeys"
+            :options="accountTypeOptions"
+            all-label="Todos os tipos"
+            empty-label="Nenhum tipo"
+            search-placeholder="Filtrar tipos"
+          />
         </FormField>
         <FormField label="Pesquisar por">
           <Select v-model="searchMode" :options="searchModeOptions" />
@@ -365,7 +483,14 @@ function duplicateMessage(error: ApiError) {
         Carregando lançamentos...
       </div>
 
-      <DataTable :columns="columns" :items="filteredItems" empty-label="Nenhum lançamento na referência selecionada">
+      <DataTable
+        :columns="columns"
+        :items="sortedItems"
+        :sort-key="sortKey"
+        :sort-direction="sortDirection"
+        empty-label="Nenhum lançamento na referência selecionada"
+        @sort-change="setSort"
+      >
         <template #cell-applicationDate="{ item }">
           <span class="num">{{ formatDate(item.applicationDate) }}</span>
         </template>
@@ -386,7 +511,7 @@ function duplicateMessage(error: ApiError) {
           {{ item.account?.name ?? 'Sem conta' }}
         </template>
         <template #cell-category="{ item }">
-          {{ item.operationalCategory?.name ?? item.category?.name ?? 'Sem categoria' }}
+          {{ categoryLabel(item) }}
         </template>
         <template #cell-memberProfile="{ item }">
           {{ item.memberProfile?.displayName ?? 'Perfil' }}

@@ -117,7 +117,7 @@ function formatMonth(value: string) {
 <template>
   <form class="form-grid" @submit.prevent="submit">
     <FormField label="Descrição base" class="full" required>
-      <input v-model="form.description" class="form-control" required maxlength="140" />
+      <input v-model="form.description" class="form-control" required maxlength="200" />
     </FormField>
 
     <FormField label="Valor da parcela" required>
