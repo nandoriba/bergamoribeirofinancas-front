@@ -28,6 +28,7 @@ export interface AlertItem {
 }
 
 export interface InstallmentItem {
+  id: string;
   name: string;
   pago: number;
   total: number;

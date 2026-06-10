@@ -1102,6 +1102,53 @@ a:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.installment-carousel-nav {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  gap: 10px;
+  align-items: center;
+  padding: 1px 0 2px;
+}
+
+.installment-nav-btn {
+  width: 30px;
+  height: 30px;
+  color: var(--text-3);
+  background: transparent;
+  border-color: transparent;
+}
+
+.installment-nav-btn:hover {
+  color: var(--text-2);
+  background: var(--bg-input);
+  border-color: var(--border);
+}
+
+.installment-page-dots {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.installment-page-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  background: var(--text-3);
+  border: 0;
+  border-radius: 50%;
+  opacity: 0.45;
+}
+
+.installment-page-dot.active {
+  width: 18px;
+  background: var(--accent);
+  border-radius: 999px;
+  opacity: 1;
+}
+
 .parcela-total {
   padding: 11px 4px 0;
   margin-top: 6px;
@@ -1723,37 +1770,89 @@ textarea.form-control {
 
 .transactions-filter-strip {
   grid-template-columns:
-    minmax(140px, 190px)
-    minmax(180px, 250px)
-    minmax(170px, 235px)
-    minmax(120px, 160px)
-    minmax(220px, 1fr)
-    auto;
+    minmax(130px, 0.8fr)
+    minmax(150px, 1fr)
+    minmax(180px, 1.2fr)
+    minmax(180px, 1.2fr);
+}
+
+.transactions-filter-strip .transaction-search-control {
+  grid-column: span 2;
 }
 
 .transaction-search-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 38px;
+  grid-template-columns: minmax(0, 1fr) 38px 38px;
   gap: 8px;
   align-items: end;
   min-width: 0;
 }
 
+.transaction-search-export,
 .transaction-search-clear {
   width: 38px;
   height: 38px;
   background: var(--bg-input);
 }
 
+.transaction-search-export:disabled:hover,
 .transaction-search-clear:disabled:hover {
   color: var(--text-2);
   background: var(--bg-input);
+}
+
+.application-date-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
 }
 
 .filter-badge {
   display: flex;
   align-items: center;
   min-height: 38px;
+}
+
+.transaction-total-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.transaction-total-item {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
+  min-height: 54px;
+  padding: 10px 12px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.transaction-total-item.balance {
+  background: color-mix(in srgb, var(--accent-soft) 34%, var(--bg-elev-2));
+}
+
+.transaction-total-item span {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  letter-spacing: 0.08em;
+}
+
+.transaction-total-item strong {
+  font-size: 17px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .invoice-detail {
@@ -2296,6 +2395,10 @@ textarea.form-control {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .transactions-filter-strip .transaction-search-control {
+    grid-column: auto;
+  }
+
   .transactions-filter-strip .filter-badge {
     grid-column: 1 / -1;
   }
@@ -2333,6 +2436,14 @@ textarea.form-control {
   }
 
   .transactions-filter-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .application-date-range {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-total-strip {
     grid-template-columns: 1fr;
   }
 

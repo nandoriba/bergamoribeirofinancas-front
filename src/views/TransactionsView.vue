@@ -25,10 +25,12 @@ import { useInvoicesStore } from '@/stores/invoices';
 import { useProfilesStore } from '@/stores/profiles';
 import { useTransactionsStore } from '@/stores/transactions';
 import {
-  ACCOUNT_TYPE_LABELS,
-  ACCOUNT_TYPES,
+  TRANSACTION_TYPES,
+  TRANSACTION_TYPE_LABELS,
   TRANSACTION_STATUS_LABELS,
+  type Account,
   type Transaction,
+  type TransactionType,
 } from '@/types/api';
 import { formatCurrency } from '@/utils/format';
 
@@ -43,10 +45,12 @@ const confirmDialog = useConfirm();
 const toast = useToast();
 
 const { error, isLoading, items } = storeToRefs(transactionsStore);
+const selectedTransactionTypeKeys = ref<string[]>([]);
 const selectedCategoryKeys = ref<string[]>([]);
-const selectedAccountTypeKeys = ref<string[]>([]);
+const selectedAccountKeys = ref<string[]>([]);
 const descriptionFilter = ref('');
-const applicationDateFilter = ref('');
+const applicationDateFromFilter = ref('');
+const applicationDateToFilter = ref('');
 const amountFilterCents = ref(0);
 const profileFilter = ref('');
 const searchMode = ref<SearchMode>('description');
@@ -68,7 +72,7 @@ type TransactionSortKey = 'applicationDate' | 'amountCents';
 type SortDirection = 'asc' | 'desc';
 
 const columns = [
-  { key: 'applicationDate', label: 'Aplicação', sortable: true },
+  { key: 'applicationDate', label: 'Data Aplicação', sortable: true },
   { key: 'referenceMonth', label: 'Referência' },
   { key: 'date', label: 'Escrituração' },
   { key: 'description', label: 'Descrição' },
@@ -82,12 +86,18 @@ const columns = [
 const searchModeOptions: Array<{ label: string; value: SearchMode }> = [
   { label: 'Descrição', value: 'description' },
   { label: 'Valor', value: 'amount' },
-  { label: 'Aplicação', value: 'applicationDate' },
+  { label: 'Data Aplicação', value: 'applicationDate' },
 ];
 
 const SPECIAL_OPERATIONAL_CATEGORY_KEYS = new Set(['system:invoice_adjustment', 'system:invoice_payment']);
 const UNCATEGORIZED_CATEGORY_KEY = 'system:uncategorized';
-const NO_ACCOUNT_TYPE_KEY = 'system:no_account';
+const NO_ACCOUNT_KEY = 'system:no_account';
+
+const TRANSACTION_TYPE_FILTER_LABELS: Record<TransactionType, string> = {
+  income: 'Entradas (receitas)',
+  expense: 'Saídas (despesas)',
+  transfer: TRANSACTION_TYPE_LABELS.transfer,
+};
 
 const ownAccounts = computed(() =>
   accountsStore.items.filter((account) => account.memberProfileId === authStore.user?.profileId),
@@ -120,32 +130,64 @@ const operationalCategoryOptions = computed(() => {
     .map(([value, label]) => ({ label, value }));
 });
 
-const accountTypeOptions = computed(() => {
-  const hasNoAccount = items.value.some((transaction) => accountTypeKey(transaction) === NO_ACCOUNT_TYPE_KEY);
-  return [
-    ...ACCOUNT_TYPES.map((value) => ({ label: ACCOUNT_TYPE_LABELS[value], value: `account:${value}` })),
-    ...(hasNoAccount ? [{ label: 'Sem conta', value: NO_ACCOUNT_TYPE_KEY }] : []),
-  ];
+const transactionTypeOptions = computed(() =>
+  TRANSACTION_TYPES.map((value) => ({ label: TRANSACTION_TYPE_FILTER_LABELS[value], value })),
+);
+
+const accountOptions = computed(() => {
+  const options = new Map<string, string>();
+  for (const account of accountsStore.items) {
+    options.set(`account:${account.id}`, accountLabel(account));
+  }
+  for (const transaction of items.value) {
+    if (transaction.account) {
+      options.set(accountKey(transaction), accountLabel(transaction.account));
+    }
+  }
+  if (items.value.some((transaction) => accountKey(transaction) === NO_ACCOUNT_KEY)) {
+    options.set(NO_ACCOUNT_KEY, 'Sem conta');
+  }
+  return [...options.entries()]
+    .sort(([, a], [, b]) => a.localeCompare(b, 'pt-BR'))
+    .map(([value, label]) => ({ label, value }));
 });
 
 const normalizedDescriptionFilter = computed(() => normalizeSearch(descriptionFilter.value));
+const transactionTypeOptionValues = computed(() => transactionTypeOptions.value.map((option) => option.value));
 const categoryOptionValues = computed(() => categoryOptions.value.map((option) => option.value));
-const accountTypeOptionValues = computed(() => accountTypeOptions.value.map((option) => option.value));
+const accountOptionValues = computed(() => accountOptions.value.map((option) => option.value));
 const hasActiveSearch = computed(() => {
   if (searchMode.value === 'amount') return amountFilterCents.value !== 0;
-  if (searchMode.value === 'applicationDate') return Boolean(applicationDateFilter.value);
+  if (searchMode.value === 'applicationDate') {
+    return Boolean(applicationDateFromFilter.value || applicationDateToFilter.value);
+  }
   return Boolean(normalizedDescriptionFilter.value);
 });
 
 const filteredItems = computed(() =>
   items.value.filter((transaction) => {
     const profileMatch = !profileFilter.value || transaction.memberProfileId === profileFilter.value;
+    const transactionTypeMatch = selectedTransactionTypeKeys.value.includes(transaction.type);
     const categoryMatch = selectedCategoryKeys.value.includes(categoryKey(transaction));
-    const accountTypeMatch = selectedAccountTypeKeys.value.includes(accountTypeKey(transaction));
-    return profileMatch && categoryMatch && accountTypeMatch && matchesActiveSearch(transaction);
+    const accountMatch = selectedAccountKeys.value.includes(accountKey(transaction));
+    return profileMatch && transactionTypeMatch && categoryMatch && accountMatch && matchesActiveSearch(transaction);
   }),
 );
 const sortedItems = computed(() => [...filteredItems.value].sort(compareTransactions));
+const filteredTotals = computed(() =>
+  filteredItems.value.reduce(
+    (totals, transaction) => {
+      const amount = Math.abs(transaction.amountCents);
+      if (transaction.type === 'income') totals.incomeCents += amount;
+      if (transaction.type === 'expense') totals.expenseCents += amount;
+      if (transaction.type === 'transfer') totals.transferCents += amount;
+      totals.netCents = totals.incomeCents - totals.expenseCents;
+      return totals;
+    },
+    { incomeCents: 0, expenseCents: 0, transferCents: 0, netCents: 0 },
+  ),
+);
+const netTotalClass = computed(() => (filteredTotals.value.netCents < 0 ? 'expense' : 'income'));
 
 const isFutureMonth = computed(() => dashboardStore.isFutureMonth);
 
@@ -175,9 +217,17 @@ watch(
 );
 
 watch(
-  accountTypeOptionValues,
+  transactionTypeOptionValues,
   (nextValues, previousValues = []) => {
-    syncSelectedOptionValues(selectedAccountTypeKeys, nextValues, previousValues);
+    syncSelectedOptionValues(selectedTransactionTypeKeys, nextValues, previousValues);
+  },
+  { immediate: true },
+);
+
+watch(
+  accountOptionValues,
+  (nextValues, previousValues = []) => {
+    syncSelectedOptionValues(selectedAccountKeys, nextValues, previousValues);
   },
   { immediate: true },
 );
@@ -245,7 +295,60 @@ function clearDuplicateWarning() {
 function clearActiveSearch() {
   descriptionFilter.value = '';
   amountFilterCents.value = 0;
-  applicationDateFilter.value = '';
+  applicationDateFromFilter.value = '';
+  applicationDateToFilter.value = '';
+}
+
+function exportFilteredTransactionsCsv() {
+  const rows = sortedItems.value.map((transaction) => [
+    formatDate(transaction.applicationDate),
+    formatMonth(transaction.referenceMonth),
+    formatDate(transaction.date),
+    transaction.description,
+    TRANSACTION_TYPE_LABELS[transaction.type],
+    TRANSACTION_STATUS_LABELS[transaction.status],
+    formatCsvAmount(transaction),
+    signedAmountCents(transaction),
+    transaction.account?.name ?? 'Sem conta',
+    categoryLabel(transaction),
+    transaction.memberProfile?.displayName ?? 'Perfil',
+    transaction.invoice ? formatMonth(transaction.invoice.referenceMonth) : '',
+    transaction.installmentNumber
+      ? `${transaction.installmentNumber}/${transaction.installmentPlan?.totalInstallments ?? ''}`
+      : '',
+    transaction.source ?? '',
+    transaction.notes ?? '',
+  ]);
+
+  const csv = toCsv([
+    [
+      'Data Aplicação',
+      'Referência',
+      'Escrituração',
+      'Descrição',
+      'Tipo',
+      'Status',
+      'Valor',
+      'Valor Centavos',
+      'Conta',
+      'Categoria',
+      'Perfil',
+      'Fatura',
+      'Parcela',
+      'Origem',
+      'Notas',
+    ],
+    ...rows,
+  ]);
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `lancamentos-${dashboardStore.selectedMonth}-${timestampForFileName()}.csv`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 function setSort(key: string) {
@@ -292,6 +395,15 @@ function formatMonth(value: string) {
   return `${month}/${year}`;
 }
 
+function formatCsvAmount(transaction: Transaction) {
+  return (signedAmountCents(transaction) / 100).toFixed(2).replace('.', ',');
+}
+
+function signedAmountCents(transaction: Transaction) {
+  const amount = Math.abs(transaction.amountCents);
+  return transaction.type === 'expense' ? -amount : amount;
+}
+
 function normalizeSearch(value: string) {
   return value
     .normalize('NFD')
@@ -306,10 +418,26 @@ function matchesActiveSearch(transaction: Transaction) {
   }
 
   if (searchMode.value === 'applicationDate') {
-    return !applicationDateFilter.value || transaction.applicationDate.slice(0, 10) === applicationDateFilter.value;
+    return matchesApplicationDateRange(transaction);
   }
 
   return !normalizedDescriptionFilter.value || normalizeSearch(transaction.description).includes(normalizedDescriptionFilter.value);
+}
+
+function matchesApplicationDateRange(transaction: Transaction) {
+  const applicationDate = transaction.applicationDate.slice(0, 10);
+  const from = applicationDateFromFilter.value;
+  const to = applicationDateToFilter.value;
+
+  if (from && to) {
+    const start = from <= to ? from : to;
+    const end = from <= to ? to : from;
+    return applicationDate >= start && applicationDate <= end;
+  }
+
+  if (from) return applicationDate >= from;
+  if (to) return applicationDate <= to;
+  return true;
 }
 
 function categoryKey(transaction: Transaction) {
@@ -327,8 +455,15 @@ function categoryLabel(transaction: Transaction) {
   return transaction.category?.name ?? 'Sem categoria';
 }
 
-function accountTypeKey(transaction: Transaction) {
-  return transaction.account?.type ? `account:${transaction.account.type}` : NO_ACCOUNT_TYPE_KEY;
+function accountKey(transaction: Transaction) {
+  const accountId = transaction.accountId ?? transaction.account?.id;
+  return accountId ? `account:${accountId}` : NO_ACCOUNT_KEY;
+}
+
+function accountLabel(account: Account) {
+  const digits = account.lastFourDigits ? ` · ${account.lastFourDigits}` : '';
+  const profile = account.memberProfile?.displayName ? ` · ${account.memberProfile.displayName}` : '';
+  return `${account.name}${digits}${profile}`;
 }
 
 function syncSelectedOptionValues(selection: Ref<string[]>, nextValues: string[], previousValues: string[] = []) {
@@ -365,6 +500,31 @@ function fallbackSortValue(transaction: Transaction) {
 
 function isTransactionSortKey(key: string): key is TransactionSortKey {
   return key === 'applicationDate' || key === 'amountCents';
+}
+
+function toCsv(rows: Array<Array<number | string>>) {
+  return rows.map((row) => row.map(csvCell).join(';')).join('\r\n');
+}
+
+function csvCell(value: number | string) {
+  const text = String(value);
+  if (!/[;"\r\n]/.test(text)) return text;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function timestampForFileName() {
+  const now = new Date();
+  const date = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('');
+  const time = [
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+    String(now.getSeconds()).padStart(2, '0'),
+  ].join('');
+  return `${date}-${time}`;
 }
 
 function isDuplicateError(error: unknown): error is ApiError {
@@ -423,6 +583,15 @@ function duplicateMessage(error: ApiError) {
         <FormField label="Perfil">
           <Select v-model="profileFilter" :options="profileOptions" />
         </FormField>
+        <FormField label="Tipo">
+          <MultiSelect
+            v-model="selectedTransactionTypeKeys"
+            :options="transactionTypeOptions"
+            all-label="Todos os tipos"
+            empty-label="Nenhum tipo"
+            search-placeholder="Filtrar tipos"
+          />
+        </FormField>
         <FormField label="Categoria">
           <MultiSelect
             v-model="selectedCategoryKeys"
@@ -432,13 +601,13 @@ function duplicateMessage(error: ApiError) {
             search-placeholder="Filtrar categorias"
           />
         </FormField>
-        <FormField label="Tipo de conta">
+        <FormField label="Conta">
           <MultiSelect
-            v-model="selectedAccountTypeKeys"
-            :options="accountTypeOptions"
-            all-label="Todos os tipos"
-            empty-label="Nenhum tipo"
-            search-placeholder="Filtrar tipos"
+            v-model="selectedAccountKeys"
+            :options="accountOptions"
+            all-label="Todas as contas"
+            empty-label="Nenhuma conta"
+            search-placeholder="Filtrar contas"
           />
         </FormField>
         <FormField label="Pesquisar por">
@@ -457,9 +626,14 @@ function duplicateMessage(error: ApiError) {
           <FormField v-else-if="searchMode === 'amount'" label="Valor">
             <CurrencyInput v-model="amountFilterCents" />
           </FormField>
-          <FormField v-else label="Data de aplicação">
-            <DateInput v-model="applicationDateFilter" />
-          </FormField>
+          <div v-else class="application-date-range">
+            <FormField label="Data inicial">
+              <DateInput v-model="applicationDateFromFilter" />
+            </FormField>
+            <FormField label="Data final">
+              <DateInput v-model="applicationDateToFilter" />
+            </FormField>
+          </div>
           <button
             class="icon-btn transaction-search-clear"
             type="button"
@@ -470,9 +644,36 @@ function duplicateMessage(error: ApiError) {
           >
             <IconGlyph name="close" :size="15" />
           </button>
+          <button
+            class="icon-btn transaction-search-export"
+            type="button"
+            :disabled="sortedItems.length === 0"
+            title="Exportar CSV"
+            aria-label="Exportar lançamentos filtrados em CSV"
+            @click="exportFilteredTransactionsCsv"
+          >
+            <IconGlyph name="download" :size="15" />
+          </button>
         </div>
         <div v-if="isFutureMonth" class="filter-badge">
           <FutureBadge />
+        </div>
+      </div>
+
+      <div class="transaction-total-strip" aria-live="polite">
+        <div class="transaction-total-item">
+          <span>Entradas em tela</span>
+          <strong class="income">{{ formatCurrency(filteredTotals.incomeCents) }}</strong>
+        </div>
+        <div class="transaction-total-item">
+          <span>Saídas em tela</span>
+          <strong class="expense">{{ formatCurrency(filteredTotals.expenseCents) }}</strong>
+        </div>
+        <div class="transaction-total-item balance">
+          <span>Saldo em tela</span>
+          <strong :class="netTotalClass">
+            {{ filteredTotals.netCents < 0 ? '-' : '+' }}{{ formatCurrency(Math.abs(filteredTotals.netCents)) }}
+          </strong>
         </div>
       </div>
 
