@@ -3,11 +3,15 @@ import { ref } from 'vue';
 
 import { memberApprovalsService, type MemberApproval } from '@/services/memberApprovals';
 import { memberInvitesService, type MemberInvite, type MemberInvitePayload } from '@/services/memberInvites';
+import { telegramService, type TelegramAuthCodeResponse } from '@/services/telegram';
 
 export const useSettingsStore = defineStore('settings', () => {
   const invites = ref<MemberInvite[]>([]);
   const approvals = ref<MemberApproval[]>([]);
+  const telegramGroupCode = ref<TelegramAuthCodeResponse | null>(null);
+  const telegramMemberCode = ref<TelegramAuthCodeResponse | null>(null);
   const isLoading = ref(false);
+  const isTelegramLoading = ref(false);
   const error = ref<string | null>(null);
 
   async function refresh() {
@@ -53,5 +57,47 @@ export const useSettingsStore = defineStore('settings', () => {
     await refresh();
   }
 
-  return { approvals, approve, createInvite, error, invites, isLoading, refresh, reject };
+  async function createTelegramGroupCode() {
+    isTelegramLoading.value = true;
+    error.value = null;
+    try {
+      telegramGroupCode.value = await telegramService.createGroupCode();
+      return telegramGroupCode.value;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Falha ao gerar código do grupo';
+      throw err;
+    } finally {
+      isTelegramLoading.value = false;
+    }
+  }
+
+  async function createTelegramMemberCode() {
+    isTelegramLoading.value = true;
+    error.value = null;
+    try {
+      telegramMemberCode.value = await telegramService.createMemberCode();
+      return telegramMemberCode.value;
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Falha ao gerar código de vínculo';
+      throw err;
+    } finally {
+      isTelegramLoading.value = false;
+    }
+  }
+
+  return {
+    approvals,
+    approve,
+    createInvite,
+    createTelegramGroupCode,
+    createTelegramMemberCode,
+    error,
+    invites,
+    isLoading,
+    isTelegramLoading,
+    refresh,
+    reject,
+    telegramGroupCode,
+    telegramMemberCode,
+  };
 });

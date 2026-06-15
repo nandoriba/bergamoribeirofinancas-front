@@ -2002,6 +2002,10 @@ textarea.form-control {
   gap: 14px;
 }
 
+.settings-wide {
+  grid-column: 1 / -1;
+}
+
 .settings-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2018,6 +2022,82 @@ textarea.form-control {
   padding: 10px 11px;
   overflow-wrap: anywhere;
   color: var(--text-2);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.telegram-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.telegram-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 13px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.telegram-card.locked {
+  background: color-mix(in srgb, var(--bg-elev-2) 76%, var(--bg-input));
+}
+
+.telegram-card-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.telegram-card-head > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.telegram-card-head strong {
+  color: var(--text);
+}
+
+.telegram-card-head span {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.telegram-command {
+  display: grid;
+  gap: 9px;
+}
+
+.telegram-command-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.telegram-command-meta span:first-child {
+  color: var(--text-2);
+}
+
+.telegram-command.expired .telegram-command-meta span:first-child {
+  color: #d99090;
+}
+
+.telegram-command code {
+  display: block;
+  min-width: 0;
+  padding: 10px 11px;
+  overflow-wrap: anywhere;
+  color: var(--text);
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 7px;
@@ -2379,6 +2459,15 @@ textarea.form-control {
     grid-column: auto;
   }
 
+  .settings-grid,
+  .telegram-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-wide {
+    grid-column: auto;
+  }
+
   .upload-panel,
   .module-panel {
     grid-template-columns: 44px minmax(0, 1fr);
@@ -2504,6 +2593,10 @@ textarea.form-control {
   .form-actions {
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+
+  .telegram-card-head {
+    flex-direction: column;
   }
 
   .installment-totals-row {
