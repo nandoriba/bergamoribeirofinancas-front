@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useDashboardStore } from '@/stores/dashboard';
 
+import FutureBadge from '@/components/common/FutureBadge.vue';
 import IconGlyph from '@/components/common/IconGlyph.vue';
 import MonthSelector from '@/components/layout/MonthSelector.vue';
 import ThemeToggle from '@/components/layout/ThemeToggle.vue';
@@ -38,6 +39,8 @@ const pageTitle = computed(() => {
   return fallbackTitles[section] ?? 'Balanço';
 });
 
+const isMonthScoped = computed(() => route.meta.monthScoped === true);
+
 async function logout() {
   await authStore.logout();
   await router.replace('/login');
@@ -54,20 +57,24 @@ async function logout() {
       <h1 class="h">
         {{ pageTitle }}
       </h1>
-      <span class="sub">· visão do mês selecionado</span>
+      <span v-if="isMonthScoped" class="sub">· visão do mês selecionado</span>
     </div>
 
-    <button class="search" type="button" aria-label="Buscar lançamento ou categoria">
+    <div v-if="isMonthScoped" class="topbar-month-slot">
+      <MonthSelector
+        :label="dashboardStore.monthLabel"
+        @previous="dashboardStore.previousMonth"
+        @next="dashboardStore.nextMonth"
+      />
+      <FutureBadge v-if="dashboardStore.isFutureMonth" />
+    </div>
+    <button v-else class="search" type="button" aria-label="Buscar lançamento ou categoria">
       <IconGlyph name="search" :size="14" />
       <span>Buscar lançamento, categoria...</span>
       <kbd>Ctrl K</kbd>
     </button>
 
-    <MonthSelector
-      :label="dashboardStore.monthLabel"
-      @previous="dashboardStore.previousMonth"
-      @next="dashboardStore.nextMonth"
-    />
+    <span v-if="isMonthScoped" class="topbar-flex-spacer" aria-hidden="true" />
 
     <button class="icon-btn" type="button" aria-label="Notificações" title="Notificações">
       <IconGlyph name="bell" :size="15" />

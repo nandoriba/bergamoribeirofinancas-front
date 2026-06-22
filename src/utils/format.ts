@@ -9,6 +9,18 @@ export function formatCurrency(cents: number): string {
   return `R$ ${formatBRL(cents)}`;
 }
 
+export function parseCurrencyInputCents(value: string): number {
+  const isNegative = value.includes('-');
+  const digits = value.replace(/\D/g, '');
+
+  if (!digits) return 0;
+
+  const cents = Number.parseInt(digits, 10);
+  if (!Number.isFinite(cents)) return 0;
+
+  return isNegative ? -cents : cents;
+}
+
 export function formatAxisCurrency(cents: number): string {
   const reais = cents / 100;
 
@@ -18,4 +30,3 @@ export function formatAxisCurrency(cents: number): string {
 
   return `R$ ${reais.toFixed(0)}`;
 }
-

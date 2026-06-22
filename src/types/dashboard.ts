@@ -1,4 +1,5 @@
 export type ThemeName = 'dark' | 'light';
+export type PossibleDuplicateDecision = 'not_duplicate' | 'duplicate';
 
 export interface CategoryAmount {
   name: string;
@@ -8,6 +9,13 @@ export interface CategoryAmount {
 
 export interface DonutSlice extends CategoryAmount {
   pct: number;
+}
+
+export interface BalanceComposition {
+  title: string;
+  totalLabel: string;
+  totalValue: number;
+  slices: DonutSlice[];
 }
 
 export interface AlertItem {
@@ -20,6 +28,7 @@ export interface AlertItem {
 }
 
 export interface InstallmentItem {
+  id: string;
   name: string;
   pago: number;
   total: number;
@@ -46,12 +55,27 @@ export interface TransactionItem {
 
 export interface ImportPreviewRow {
   id: string;
+  batchId: string;
   date: string;
+  applicationDate: string | null;
   description: string;
   source: string;
   suggestedCategory: string;
   value: number;
-  status: 'new' | 'duplicate' | 'review';
+  status: 'new' | 'duplicate' | 'possible_duplicate' | 'review';
+  reviewReason?: string | null;
+  duplicateCandidates: ImportDuplicateCandidate[];
+  invoiceAdjustmentCandidate?: boolean;
+  invoiceAdjustmentDefault?: boolean;
+}
+
+export interface ImportDuplicateCandidate {
+  id?: string;
+  description: string;
+  applicationDate: string;
+  amountCents: number;
+  source: string;
+  accountName?: string | null;
 }
 
 export interface DashboardData {
@@ -60,6 +84,8 @@ export interface DashboardData {
   today: string;
   saldoAtual: number;
   saldoFuturo: number;
+  saldoAtualTotal: number;
+  saldoProjetadoTotal: number;
   saldoAnt: number;
   saldoMaxMes: number;
   despesaAtual: number;
@@ -68,6 +94,10 @@ export interface DashboardData {
   cartaoAtual: number;
   cartaoFuturo: number;
   cartaoAntMes: number;
+  parcelasConfirmadasQuantidade: number;
+  parcelasConfirmadasValorCents: number;
+  parcelasProjetadasQuantidade: number;
+  parcelasProjetadasValorCents: number;
   receitaPrevista: number;
   top5: CategoryAmount[];
   outrosCat: number;
@@ -75,10 +105,18 @@ export interface DashboardData {
   parcelas: InstallmentItem[];
   saldoMensal: MonthlyBalancePoint[];
   saldoDiario: number[];
+  saldoDiarioAtual: number[];
+  saldoDiarioProjetado: number[];
   despesaDiariaSpark: number[];
+  despesaDiariaAtualSpark: number[];
+  despesaDiariaProjetadaSpark: number[];
   cartaoDiariaSpark: number[];
+  cartaoDiariaAtualSpark: number[];
+  cartaoDiariaProjetadaSpark: number[];
   donutSlices: DonutSlice[];
   despesaTotalMes: number;
+  saldoComposicaoConfirmada: BalanceComposition;
+  saldoComposicaoProjetada: BalanceComposition;
   transactions: TransactionItem[];
   importPreview: ImportPreviewRow[];
 }

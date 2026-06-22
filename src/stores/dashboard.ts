@@ -20,6 +20,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
     return `${MONTHS[month - 1]} ${year}`;
   });
 
+  const isFutureMonth = computed(() => selectedMonth.value > toMonthKey(new Date()));
+
   function previousMonth() {
     selectedMonth.value = shiftMonth(selectedMonth.value, -1);
     void refreshDashboard();
@@ -39,7 +41,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      data.value = await apiFetch<DashboardData>(`/dashboard?month=${selectedMonth.value}&family=true`);
+      const response = await apiFetch<DashboardData>(`/dashboard?referenceMonth=${selectedMonth.value}&family=true`);
+      data.value = response;
+      importBatchId.value = response.importPreview[0]?.batchId ?? null;
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Falha ao carregar dashboard';
       data.value = createEmptyDashboard(selectedMonth.value);
@@ -59,7 +63,14 @@ export const useDashboardStore = defineStore('dashboard', () => {
         body: formData,
       });
       importBatchId.value = response.batchId;
-      data.value = { ...data.value, importPreview: response.rows };
+      data.value = {
+        ...data.value,
+        importPreview: response.rows.map((row) => ({
+          ...row,
+          batchId: row.batchId || response.batchId,
+          duplicateCandidates: row.duplicateCandidates ?? [],
+        })),
+      };
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Falha ao importar CSV';
       throw err;
@@ -68,14 +79,25 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
-  async function confirmImport() {
+  async function confirmImport(
+    accountId?: string,
+    acceptedPossibleDuplicateRowIds: string[] = [],
+    confirmedDuplicateRowIds: string[] = [],
+    invoiceAdjustmentRowIds: string[] = [],
+  ) {
     if (!importBatchId.value) return;
     importLoading.value = true;
     error.value = null;
     try {
       await apiFetch('/imports/confirm', {
         method: 'POST',
-        body: { batchId: importBatchId.value },
+        body: {
+          batchId: importBatchId.value,
+          accountId: accountId || undefined,
+          acceptedPossibleDuplicateRowIds,
+          confirmedDuplicateRowIds,
+          invoiceAdjustmentRowIds,
+        },
       });
       importBatchId.value = null;
       await refreshDashboard();
@@ -87,9 +109,41 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
-  function discardImportPreview() {
-    importBatchId.value = null;
-    data.value = { ...data.value, importPreview: [] };
+  async function discardImportPreview() {
+    if (importLoading.value) return;
+
+    const batchIds = new Set<string>();
+    for (const row of data.value.importPreview) {
+      if (row.batchId) {
+        batchIds.add(row.batchId);
+      }
+    }
+
+    if (importBatchId.value) {
+      batchIds.add(importBatchId.value);
+    }
+
+    if (batchIds.size === 0) return;
+
+    importLoading.value = true;
+    error.value = null;
+    try {
+      await Promise.all(
+        [...batchIds].map((batchId) =>
+          apiFetch('/imports/discard', {
+            method: 'POST',
+            body: { batchId },
+          }),
+        ),
+      );
+      importBatchId.value = null;
+      data.value = { ...data.value, importPreview: [] };
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Falha ao descartar prévia';
+      throw err;
+    } finally {
+      importLoading.value = false;
+    }
   }
 
   return {
@@ -101,6 +155,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     importBatchId,
     importLoading,
     isLoading,
+    isFutureMonth,
     monthLabel,
     nextMonth,
     previewImport,
@@ -119,6 +174,8 @@ function createEmptyDashboard(monthRef: string): DashboardData {
     today: '',
     saldoAtual: 0,
     saldoFuturo: 0,
+    saldoAtualTotal: 0,
+    saldoProjetadoTotal: 0,
     saldoAnt: 0,
     saldoMaxMes: 0,
     despesaAtual: 0,
@@ -127,6 +184,10 @@ function createEmptyDashboard(monthRef: string): DashboardData {
     cartaoAtual: 0,
     cartaoFuturo: 0,
     cartaoAntMes: 0,
+    parcelasConfirmadasQuantidade: 0,
+    parcelasConfirmadasValorCents: 0,
+    parcelasProjetadasQuantidade: 0,
+    parcelasProjetadasValorCents: 0,
     receitaPrevista: 0,
     top5: [],
     outrosCat: 0,
@@ -134,10 +195,28 @@ function createEmptyDashboard(monthRef: string): DashboardData {
     parcelas: [],
     saldoMensal: Array.from({ length: 12 }, (_, index) => ({ m: MONTHS[index], v: 0 })),
     saldoDiario: new Array(31).fill(0),
+    saldoDiarioAtual: new Array(31).fill(0),
+    saldoDiarioProjetado: new Array(31).fill(0),
     despesaDiariaSpark: new Array(31).fill(0),
+    despesaDiariaAtualSpark: new Array(31).fill(0),
+    despesaDiariaProjetadaSpark: new Array(31).fill(0),
     cartaoDiariaSpark: new Array(31).fill(0),
+    cartaoDiariaAtualSpark: new Array(31).fill(0),
+    cartaoDiariaProjetadaSpark: new Array(31).fill(0),
     donutSlices: [],
     despesaTotalMes: 0,
+    saldoComposicaoConfirmada: {
+      title: 'Composição confirmada',
+      totalLabel: 'CONFIRMADO',
+      totalValue: 0,
+      slices: [],
+    },
+    saldoComposicaoProjetada: {
+      title: 'Composição projetada',
+      totalLabel: 'PROJETADO',
+      totalValue: 0,
+      slices: [],
+    },
     transactions: [],
     importPreview: [],
   };
