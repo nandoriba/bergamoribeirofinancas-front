@@ -117,15 +117,28 @@ jobs:
           envs: FRONTEND_TAG,GHCR_USERNAME,GHCR_PAT,VPS_APP_DIR
           script: |
             set -eu
+            if [ "$VPS_APP_DIR" != "/app/financeiro" ]; then
+              echo "VPS_APP_DIR deve ser /app/financeiro para não sobrescrever a stack do Psicocomportamento."
+              exit 1
+            fi
             cd "$VPS_APP_DIR"
+            if [ ! -f .env ]; then
+              echo "Arquivo $VPS_APP_DIR/.env não encontrado. Provisione o .env de produção antes do deploy."
+              exit 1
+            fi
+            if [ ! -f docker-compose.yml ]; then
+              echo "Arquivo $VPS_APP_DIR/docker-compose.yml não encontrado. Rode o deploy do backend primeiro para publicar o compose."
+              exit 1
+            fi
+            docker network inspect app_internal > /dev/null
             echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
             if grep -q '^FRONTEND_TAG=' .env; then
               sed -i "s/^FRONTEND_TAG=.*/FRONTEND_TAG=${FRONTEND_TAG}/" .env
             else
               printf '\nFRONTEND_TAG=%s\n' "${FRONTEND_TAG}" >> .env
             fi
-            docker compose pull frontend
-            docker compose up -d frontend
+            docker compose -p financeiro -f "$VPS_APP_DIR/docker-compose.yml" pull frontend
+            docker compose -p financeiro -f "$VPS_APP_DIR/docker-compose.yml" up -d frontend
             sleep 5
             curl -fsS http://127.0.0.1:8181 > /dev/null
             docker image prune -f
